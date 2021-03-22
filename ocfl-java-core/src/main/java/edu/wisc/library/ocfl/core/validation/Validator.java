@@ -24,12 +24,18 @@
 
 package edu.wisc.library.ocfl.core.validation;
 
+import at.favre.lib.bytes.Bytes;
 import edu.wisc.library.ocfl.api.exception.OcflIOException;
 import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.ObjectPaths;
+import edu.wisc.library.ocfl.core.validation.model.SimpleInventory;
 
 import java.io.IOException;
+import java.security.DigestInputStream;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 // TODO rename?
 public class Validator {
@@ -39,10 +45,12 @@ public class Validator {
     };
 
     private final Storage storage;
+    private final SimpleInventoryParser inventoryParser;
     private final SimpleInventoryValidator inventoryValidator;
 
     public Validator(Storage storage) {
         this.storage = Enforce.notNull(storage, "storage cannot be null");
+        this.inventoryParser = new SimpleInventoryParser();
         this.inventoryValidator = new SimpleInventoryValidator();
     }
 
@@ -58,7 +66,13 @@ public class Validator {
                     "Object root inventory not found at %s", inventoryPath);
         }
 
-        var parseResult = parseInventory(inventoryPath, POSSIBLE_INV_ALGORITHMS);
+        var parseResult = parseInventory(inventoryPath, results, POSSIBLE_INV_ALGORITHMS);
+
+        if (parseResult.inventory.isPresent()) {
+            var rootInventory = parseResult.inventory.get();
+
+            results.addAll(inventoryValidator.validateInventory(rootInventory, inventoryPath));
+        }
 
         // TODO validate side car
         // TODO validate object root contents
@@ -78,11 +92,53 @@ public class Validator {
         return null;
     }
 
-    private InventoryValidationResults parseInventory(String inventoryPath, DigestAlgorithm... digestAlgorithms) {
+    private ParseResult parseInventory(String inventoryPath,
+                                       ValidationResults results,
+                                       DigestAlgorithm... digestAlgorithms) {
         try (var stream = storage.readFile(inventoryPath)) {
-            return inventoryValidator.validateInventory(stream, inventoryPath, digestAlgorithms);
+            var wrapped = stream;
+            Map<DigestAlgorithm, DigestInputStream> digestStreams = null;
+
+            if (digestAlgorithms != null && digestAlgorithms.length > 0) {
+                digestStreams = new HashMap<>(digestAlgorithms.length);
+
+                for (var algorithm : digestAlgorithms) {
+                    var digestStream = new DigestInputStream(wrapped, algorithm.getMessageDigest());
+                    digestStreams.put(algorithm, digestStream);
+                    wrapped = digestStream;
+                }
+            }
+
+            var parseResult = inventoryParser.parse(wrapped, inventoryPath);
+
+            results.addAll(parseResult.getValidationResults());
+
+            var result = new ParseResult(parseResult.getInventory());
+
+            if (digestStreams != null) {
+                digestStreams.forEach((algorithm, digestStream) -> {
+                    result.withDigest(algorithm, Bytes.wrap(digestStream.getMessageDigest().digest()).encodeHex());
+                });
+            }
+
+            return result;
         } catch (IOException e) {
             throw new OcflIOException(e);
+        }
+    }
+
+    private static class ParseResult {
+        final Optional<SimpleInventory> inventory;
+        final Map<DigestAlgorithm, String> digests;
+
+        ParseResult(Optional<SimpleInventory> inventory) {
+            this.inventory = inventory;
+            digests = new HashMap<>();
+        }
+
+        ParseResult withDigest(DigestAlgorithm algorithm, String value) {
+            digests.put(algorithm, value);
+            return this;
         }
     }
 

@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-public class SimpleInventoryValidatorTest {
+public class SimpleInventoryParserTest {
 
     private static final String ID_KEY = "id";
     private static final String TYPE_KEY = "type";
@@ -40,22 +40,22 @@ public class SimpleInventoryValidatorTest {
 
     private static final String NAME = "inventory.json";
 
-    private SimpleInventoryValidator validator;
+    private SimpleInventoryParser parser;
     private ObjectMapper objectMapper;
 
     @BeforeEach
     public void setup() {
-        validator = new SimpleInventoryValidator();
+        parser = new SimpleInventoryParser();
         objectMapper = new ObjectMapper();
     }
 
     @Test
     public void validateMostMinimalInventory() {
-        var results = validator.validateInventory(toStream(inventoryStub()), NAME);
+        var results = parser.parse(toStream(inventoryStub()), NAME);
 
         assertWarnCount(results, 0);
         assertErrorCount(results, 0);
-        assertTrue(results.hasInventory());
+        assertTrue(results.getInventory().isPresent());
     }
 
     @Test
@@ -63,12 +63,12 @@ public class SimpleInventoryValidatorTest {
         var inv = inventoryStub();
         inv.put("bogus", "this should not exist");
 
-        var results = validator.validateInventory(toStream(inv), NAME);
+        var results = parser.parse(toStream(inv), NAME);
 
         assertErrorCount(results, 1);
         assertWarnCount(results, 0);
         assertError(results, ValidationCode.E102, "Inventory cannot contain unknown property bogus in inventory.json");
-        assertTrue(results.hasInventory());
+        assertTrue(results.getInventory().isPresent());
     }
 
     @Test
@@ -78,12 +78,12 @@ public class SimpleInventoryValidatorTest {
         manifest.put("digest", null);
         inv.put(ID_KEY, manifest);
 
-        var results = validator.validateInventory(toStream(inv), NAME);
+        var results = parser.parse(toStream(inv), NAME);
 
         assertErrorCount(results, 1);
         assertWarnCount(results, 0);
-        assertError(results, ValidationCode.E033, "Inventory id must be a string in inventory.json");
-        assertTrue(results.hasInventory());
+        assertError(results, ValidationCode.E037, "Inventory id must be a string in inventory.json");
+        assertTrue(results.getInventory().isPresent());
     }
 
     @Test
@@ -91,33 +91,31 @@ public class SimpleInventoryValidatorTest {
         var inv = inventoryStub();
         ((Map<String, Object>) inv.get(VERSIONS_KEY)).put("v1", "version one");
 
-        var results = validator.validateInventory(toStream(inv), NAME);
+        var results = parser.parse(toStream(inv), NAME);
 
-        assertErrorCount(results, 3);
+        assertErrorCount(results, 1);
         assertWarnCount(results, 0);
         assertError(results, ValidationCode.E047, "Inventory versions must be objects in inventory.json");
-        assertError(results, ValidationCode.E044, "Inventory versions is missing an entry for version v1 in inventory.json");
-        assertError(results, ValidationCode.E008, "Inventory must contain at least one version inventory.json");
-        assertTrue(results.hasInventory());
+        assertTrue(results.getInventory().isPresent());
     }
 
     @Test
     public void errorWhenJsonNotParsable() {
-        var results = validator.validateInventory(
+        var results = parser.parse(
                 new ByteArrayInputStream("{\"bad\": \"json\"".getBytes(StandardCharsets.UTF_8)), NAME);
 
         assertErrorCount(results, 1);
         assertWarnCount(results, 0);
         assertError(results, ValidationCode.E033, "Inventory at inventory.json is an invalid JSON document");
-        assertFalse(results.hasInventory());
+        assertFalse(results.getInventory().isPresent());
     }
 
-    private void assertErrorCount(InventoryValidationResults results, int count) {
+    private void assertErrorCount(SimpleInventoryParser.ParseSimpleInventoryResult results, int count) {
         assertEquals(count, results.getValidationResults().getErrors().size(),
                 () -> String.format("Expected %s errors. Found: %s", count, results.getValidationResults().getErrors()));
     }
 
-    private void assertError(InventoryValidationResults results, ValidationCode code, String message) {
+    private void assertError(SimpleInventoryParser.ParseSimpleInventoryResult results, ValidationCode code, String message) {
         for (var error : results.getValidationResults().getErrors()) {
             if (error.getCode() == code && error.getMessage().contains(message)) {
                 return;
@@ -128,12 +126,12 @@ public class SimpleInventoryValidatorTest {
                 code, message, results.getValidationResults().getErrors()));
     }
 
-    private void assertWarnCount(InventoryValidationResults results, int count) {
+    private void assertWarnCount(SimpleInventoryParser.ParseSimpleInventoryResult results, int count) {
         assertEquals(count, results.getValidationResults().getWarnings().size(),
                 () -> String.format("Expected %s warnings. Found: %s", count, results.getValidationResults().getWarnings()));
     }
 
-    private void assertWarn(InventoryValidationResults results, ValidationCode code, String message) {
+    private void assertWarn(SimpleInventoryParser.ParseSimpleInventoryResult results, ValidationCode code, String message) {
         for (var warn : results.getValidationResults().getWarnings()) {
             if (warn.getCode() == code && warn.getMessage().contains(message)) {
                 return;

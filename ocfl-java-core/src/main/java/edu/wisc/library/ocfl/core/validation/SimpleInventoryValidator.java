@@ -24,24 +24,18 @@
 
 package edu.wisc.library.ocfl.core.validation;
 
-import at.favre.lib.bytes.Bytes;
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.wisc.library.ocfl.api.DigestAlgorithmRegistry;
-import edu.wisc.library.ocfl.api.exception.OcflIOException;
 import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
 import edu.wisc.library.ocfl.api.model.InventoryType;
 import edu.wisc.library.ocfl.api.model.VersionNum;
+import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.validation.model.SimpleInventory;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.security.DigestInputStream;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -62,42 +56,41 @@ public class SimpleInventoryValidator {
     private static final Set<String> ALLOWED_CONTENT_DIGESTS = Set.of(
             DigestAlgorithm.sha256.getOcflName(),
             DigestAlgorithm.sha512.getOcflName()
-        );
+    );
 
-    private final ObjectMapper objectMapper;
-    private final SimpleInventoryParser inventoryParser;
+    private static final Map<String, Integer> DIGEST_LENGTHS = Map.of(
+            DigestAlgorithm.md5.getOcflName(), 32,
+            DigestAlgorithm.sha1.getOcflName(), 41,
+            DigestAlgorithm.sha256.getOcflName(), 64,
+            DigestAlgorithm.sha512.getOcflName(), 128,
+            DigestAlgorithm.blake2b512.getOcflName(), 128,
+            DigestAlgorithm.blake2b160.getOcflName(), 40,
+            DigestAlgorithm.blake2b256.getOcflName(), 64,
+            DigestAlgorithm.blake2b384.getOcflName(), 96,
+            DigestAlgorithm.sha512_256.getOcflName(), 64
+    );
+
+    private final BitSet lowerHexChars;
 
     public SimpleInventoryValidator() {
-        objectMapper = new ObjectMapper();
-        inventoryParser = new SimpleInventoryParser();
+        lowerHexChars = new BitSet();
+        for (int i = '0'; i <= '0'; i++) {
+            lowerHexChars.set(i);
+        }
+        for (int i = 'a'; i <= 'f'; i++) {
+            lowerHexChars.set(i);
+        }
     }
 
-    public InventoryValidationResults validateInventory(InputStream inventoryStream,
-                                                        String inventoryPath,
-                                                        DigestAlgorithm... digestAlgorithms) {
+    public ValidationResults validateInventory(SimpleInventory inventory,
+                                                        String inventoryPath) {
+        Enforce.notNull(inventory, "inventory cannot be null");
+        Enforce.notNull(inventoryPath, "inventoryPath cannot be null");
+
         var results = new ValidationResults();
 
-        String digest = null;
-
-        var parseResult = parseInventory(inventoryStream,
-                inventoryPath,
-                results,
-                digestAlgorithms);
-
-        if (parseResult.inventory != null) {
-            validateInventory(parseResult.inventory, inventoryPath, results);
-
-            if (parseResult.inventory.getDigestAlgorithm() != null) {
-                digest = parseResult.digests.get(DigestAlgorithm.fromOcflName(parseResult.inventory.getDigestAlgorithm()));
-            }
-        }
-
-        return new InventoryValidationResults(parseResult.inventory, digest, results);
-    }
-
-    private void validateInventory(SimpleInventory inventory, String inventoryPath, ValidationResults results) {
         results.addIssue(ifNotNull(inventory.getId(), () -> notBlank(inventory.getId(), ValidationCode.E036,
-                        "Inventory id cannot be blank in %s", inventoryPath)))
+                "Inventory id cannot be blank in %s", inventoryPath)))
                 .addIssue(ifNotNull(inventory.getType(), () -> isTrue(inventory.getType().equals(InventoryType.OCFL_1_0.getId()),
                         ValidationCode.E038,
                         "Inventory type must equal '%s' in %s", InventoryType.OCFL_1_0.getId(), inventoryPath)))
@@ -112,7 +105,7 @@ public class SimpleInventoryValidator {
         if (inventory.getContentDirectory() != null) {
             var content = inventory.getContentDirectory();
             results.addIssue(isTrue(content.contains("/"), ValidationCode.E017,
-                            "Inventory content directory cannot contain '/' in %s", inventoryPath))
+                    "Inventory content directory cannot contain '/' in %s", inventoryPath))
                     .addIssue(isTrue(content.equals(".") || content.equals(".."), ValidationCode.E018,
                             "Inventory content directory cannot equal '.' or '..' in %s", inventoryPath));
         }
@@ -121,14 +114,20 @@ public class SimpleInventoryValidator {
         validateInventoryManifest(inventory, inventoryPath, results);
         validateInventoryVersions(inventory, inventoryPath, results);
         validateInventoryFixity(inventory, inventoryPath, results);
+
+        return results;
     }
 
     private void validateInventoryManifest(SimpleInventory inventory, String inventoryPath, ValidationResults results) {
         if (inventory.getManifest() != null) {
             var digests = new HashSet<String>(inventory.getManifest().size());
-            // TODO validate hex chars only
             for (var digest : inventory.getManifest().keySet()) {
                 var digestLower = digest.toLowerCase();
+
+                if (!isDigestValidHex(digestLower, inventory.getDigestAlgorithm())) {
+                    results.addIssue(ValidationCode.E096,
+                            "Inventory manifest digests must be valid in %s. Found: %s", inventoryPath, digest);
+                }
 
                 if (digests.contains(digestLower)) {
                     results.addIssue(ValidationCode.E096,
@@ -283,9 +282,13 @@ public class SimpleInventoryValidator {
 
                 if (digestMap != null) {
                     var digests = new HashSet<String>(digestMap.size());
-                    // TODO validate hex chars only
                     for (var digest : digestMap.keySet()) {
                         var digestLower = digest.toLowerCase();
+
+                        if (!isDigestValidHex(digestLower, algorithm)) {
+                            results.addIssue(ValidationCode.E057,
+                                    "Inventory fixity block digests must be valid in %s. Found: %s", inventoryPath, digest);
+                        }
 
                         if (digests.contains(digestLower)) {
                             results.addIssue(ValidationCode.E097,
@@ -399,45 +402,6 @@ public class SimpleInventoryValidator {
         return versionNum;
     }
 
-    private ParseInventoryResult parseInventory(InputStream inventoryStream,
-                                                String inventoryPath,
-                                                ValidationResults results,
-                                                DigestAlgorithm... digestAlgorithms) {
-        try {
-            var wrapped = inventoryStream;
-            Map<DigestAlgorithm, DigestInputStream> digestStreams = null;
-
-            if (digestAlgorithms != null && digestAlgorithms.length > 0) {
-                digestStreams = new HashMap<>(digestAlgorithms.length);
-
-                for (var algorithm : digestAlgorithms) {
-                    var digestStream = new DigestInputStream(wrapped, algorithm.getMessageDigest());
-                    digestStreams.put(algorithm, digestStream);
-                    wrapped = digestStream;
-                }
-            }
-
-            var jsonTree = objectMapper.readTree(wrapped);
-            var parseResult = inventoryParser.parse(jsonTree, inventoryPath);
-            results.addAll(parseResult.getValidationResults());
-
-            var result = new ParseInventoryResult(parseResult.getInventory());
-
-            if (digestStreams != null) {
-                digestStreams.forEach((algorithm, digestStream) -> {
-                    result.withDigest(algorithm, Bytes.wrap(digestStream.getMessageDigest().digest()).encodeHex());
-                });
-            }
-
-            return result;
-        } catch (JsonParseException e) {
-            results.addIssue(ValidationCode.E033, "Inventory at %s is an invalid JSON document", inventoryPath);
-            return new ParseInventoryResult(null);
-        } catch (IOException e) {
-            throw new OcflIOException(e);
-        }
-    }
-
     private Optional<ValidationIssue> notBlank(String value, ValidationCode code, String messageTemplate, Object... args) {
         if (value == null || value.isBlank()) {
             return Optional.of(createIssue(code, messageTemplate, args));
@@ -470,6 +434,25 @@ public class SimpleInventoryValidator {
         return Optional.empty();
     }
 
+    private boolean isDigestValidHex(String lowerDigest, String algorithm) {
+        // can't validate something we don't have info on
+        if (algorithm == null || !DIGEST_LENGTHS.containsKey(algorithm)) {
+            var length = DIGEST_LENGTHS.get(algorithm);
+
+            if (lowerDigest.length() != length) {
+                return false;
+            }
+
+            for (int i = 0; i < lowerDigest.length(); i++) {
+                if (!lowerHexChars.get(lowerDigest.charAt(i))) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     private ValidationIssue createIssue(ValidationCode code, String messageTemplate, Object... args) {
         var message = messageTemplate;
 
@@ -478,23 +461,6 @@ public class SimpleInventoryValidator {
         }
 
         return new ValidationIssue(code, message);
-    }
-
-    private static class ParseInventoryResult {
-
-        final SimpleInventory inventory;
-        final Map<DigestAlgorithm, String> digests;
-
-        ParseInventoryResult(SimpleInventory inventory) {
-            this.inventory = inventory;
-            digests = new HashMap<>();
-        }
-
-        ParseInventoryResult withDigest(DigestAlgorithm algorithm, String value) {
-            digests.put(algorithm, value);
-            return this;
-        }
-
     }
 
 }

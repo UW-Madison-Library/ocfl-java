@@ -24,25 +24,61 @@
 
 package edu.wisc.library.ocfl.core.validation;
 
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.wisc.library.ocfl.api.exception.OcflIOException;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.validation.model.SimpleInventory;
 import edu.wisc.library.ocfl.core.validation.model.SimpleUser;
 import edu.wisc.library.ocfl.core.validation.model.SimpleVersion;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 public class SimpleInventoryParser {
 
-    public ParseSimpleInventoryResult parse(JsonNode jsonTree, String inventoryPath) {
-        Enforce.notNull(jsonTree, "jsonTree cannot be null");
+    private final ObjectMapper objectMapper;
 
-        var inventory = new SimpleInventory();
+    public SimpleInventoryParser() {
+        objectMapper = new ObjectMapper();
+    }
+
+    public ParseSimpleInventoryResult parse(InputStream inventoryStream, String inventoryPath) {
+        Enforce.notNull(inventoryStream, "jsonTree cannot be null");
+        Enforce.notNull(inventoryPath, "inventoryPath cannot be null");
+
+        SimpleInventory inventory = null;
         var results = new ValidationResults();
+
+        var jsonTree = parseStream(inventoryStream, inventoryPath, results);
+
+        if (jsonTree != null) {
+            inventory = convertToSimpleInventory(jsonTree, inventoryPath, results);
+        }
+
+        return new ParseSimpleInventoryResult(inventory, results);
+    }
+
+    private JsonNode parseStream(InputStream inventoryStream, String inventoryPath, ValidationResults results) {
+        try {
+            return objectMapper.readTree(inventoryStream);
+        } catch (JsonParseException e) {
+            results.addIssue(ValidationCode.E033, "Inventory at %s is an invalid JSON document", inventoryPath);
+            return null;
+        } catch (IOException e) {
+            throw new OcflIOException(e);
+        }
+    }
+
+    private SimpleInventory convertToSimpleInventory(JsonNode jsonTree, String inventoryPath, ValidationResults results) {
+        var inventory = new SimpleInventory();
 
         jsonTree.fields().forEachRemaining(entry -> {
             var fieldName = entry.getKey();
@@ -53,7 +89,7 @@ public class SimpleInventoryParser {
                     inventory.setId(parseString(field,
                             () -> results.addIssue(ValidationCode.E036, "Inventory id cannot be null in %s",
                                     inventoryPath),
-                            () -> results.addIssue(ValidationCode.E033,
+                            () -> results.addIssue(ValidationCode.E037,
                                     "Inventory id must be a string in %s",
                                     inventoryPath)));
                     break;
@@ -104,7 +140,7 @@ public class SimpleInventoryParser {
             }
         });
 
-        return new ParseSimpleInventoryResult(inventory, results);
+        return inventory;
     }
 
     private SimpleVersion parseVersion(JsonNode versionNode, String versionNum, String inventoryPath, ValidationResults results) {
@@ -405,15 +441,15 @@ public class SimpleInventoryParser {
     }
 
     public static class ParseSimpleInventoryResult {
-        private final SimpleInventory inventory;
+        private final Optional<SimpleInventory> inventory;
         private final ValidationResults validationResults;
 
         public ParseSimpleInventoryResult(SimpleInventory inventory, ValidationResults validationResults) {
-            this.inventory = Enforce.notNull(inventory, "inventory cannot be null");
+            this.inventory = Optional.ofNullable(inventory);
             this.validationResults = Enforce.notNull(validationResults, "validationResults cannot be null");
         }
 
-        public SimpleInventory getInventory() {
+        public Optional<SimpleInventory> getInventory() {
             return inventory;
         }
 
