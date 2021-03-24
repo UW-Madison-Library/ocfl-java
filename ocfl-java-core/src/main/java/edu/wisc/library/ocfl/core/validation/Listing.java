@@ -24,6 +24,8 @@
 
 package edu.wisc.library.ocfl.core.validation;
 
+import edu.wisc.library.ocfl.api.util.Enforce;
+
 // TODO
 public class Listing {
 
@@ -32,12 +34,36 @@ public class Listing {
         File,
     }
 
+    private final Type type;
+    private final String relativePath;
+
+    public Listing(Type type, String relativePath) {
+        this.type = Enforce.notNull(type, "type cannot be null");
+        this.relativePath = Enforce.notNull(relativePath, "relativePath cannot be null");
+    }
+
     public String getRelativePath() {
-        return null;
+        return relativePath;
     }
 
     public Type getType() {
-        return null;
+        return type;
+    }
+
+    public boolean isFile() {
+        return type == Type.File;
+    }
+
+    public boolean isDirectory() {
+        return type == Type.Directory;
+    }
+
+    @Override
+    public String toString() {
+        return "Listing{" +
+                "type=" + type +
+                ", relativePath='" + relativePath + '\'' +
+                '}';
     }
 
 }

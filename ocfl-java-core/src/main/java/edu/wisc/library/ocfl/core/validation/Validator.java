@@ -37,15 +37,18 @@ import edu.wisc.library.ocfl.core.validation.model.SimpleInventory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 // TODO rename?
 public class Validator {
@@ -86,7 +89,7 @@ public class Validator {
             var parseResult = parseInventory(inventoryPath, results, POSSIBLE_INV_ALGORITHMS);
             parseResult.inventory.ifPresent(inventory ->
                     validateObjectWithInventory(objectRootPath, inventoryPath, inventory,
-                            parseResult.digests, parseResult.isValid, results));
+                            parseResult.digests, parseResult.isValid, contentFixityCheck, results));
         } else {
             results.addIssue(ValidationCode.E063,
                     "Object root inventory not found at %s", inventoryPath);
@@ -100,6 +103,7 @@ public class Validator {
                                              SimpleInventory rootInventory,
                                              Map<DigestAlgorithm, String> inventoryDigests,
                                              boolean inventoryIsValid,
+                                             boolean contentFixityCheck,
                                              ValidationResults results) {
         var ignoreFiles = new HashSet<>(OBJECT_ROOT_FILES);
 
@@ -126,9 +130,12 @@ public class Validator {
                     validateVersion(objectRootPath, versionStr, rootInventory, results);
                 }
             });
-            // TODO validate manifest -- need to verify fixity paths exist too
 
-            // TODO optionally check fixity
+            validateContentFiles(objectRootPath, rootInventory, results);
+
+            if (contentFixityCheck) {
+                fixityCheck(objectRootPath, rootInventory, results);
+            }
         } else {
             LOG.debug("Skipping further validation of the object at {} because its inventory is invalid", objectRootPath);
         }
@@ -243,6 +250,95 @@ public class Validator {
         }
     }
 
+    private void validateContentFiles(String objectRootPath, SimpleInventory inventory, ValidationResults results) {
+        var contentDir = defaultedContentDir(inventory);
+
+        var manifestPaths = getManifestPaths(inventory);
+        var fixityPaths = getFixityPaths(inventory);
+
+        inventory.getVersions().keySet().forEach(versionNum -> {
+            var versionContentDir = FileUtil.pathJoinFailEmpty(versionNum, contentDir);
+            var versionContentPath = FileUtil.pathJoinFailEmpty(objectRootPath, versionContentDir);
+            var listings = storage.listDirectory(versionContentPath, true);
+
+            listings.forEach(listing -> {
+                var fullPath = FileUtil.pathJoinFailEmpty(versionContentPath, listing.getRelativePath());
+                var contentPath = FileUtil.pathJoinFailEmpty(versionContentDir, listing.getRelativePath());
+
+                if (listing.isDirectory()) {
+                    results.addIssue(ValidationCode.E024,
+                            "Object contains an empty directory within version content at %s",
+                            fullPath);
+                } else {
+                    if (!manifestPaths.remove(contentPath)) {
+                        results.addIssue(ValidationCode.E023,
+                                "Object contains a file with in version content at %s that is not referenced in the manifest",
+                                fullPath);
+                    }
+                    fixityPaths.remove(contentPath);
+                }
+            });
+        });
+
+        manifestPaths.forEach(contentPath -> {
+            results.addIssue(ValidationCode.E092,
+                    "Inventory manifest contains content path %s but this file does not exist in %s",
+                    contentPath, objectRootPath);
+        });
+
+        fixityPaths.forEach(contentPath -> {
+            results.addIssue(ValidationCode.E093,
+                    "Inventory fixity contains content path %s but this file does not exist in %s",
+                    contentPath, objectRootPath);
+        });
+    }
+
+    private void fixityCheck(String objectRootPath, SimpleInventory inventory, ValidationResults results) {
+        var invertedFixityMap = invertFixity(inventory);
+        var contentAlgorithm = DigestAlgorithmRegistry.getAlgorithm(inventory.getDigestAlgorithm());
+
+        if (inventory.getManifest() != null) {
+            for (var entry : inventory.getManifest().entrySet()) {
+                var digest = entry.getKey();
+
+                for (var contentPath : entry.getValue()) {
+                    var storagePath = FileUtil.pathJoinFailEmpty(objectRootPath, contentPath);
+
+                    var expectations = new HashMap<DigestAlgorithm, String>();
+                    expectations.put(contentAlgorithm, digest);
+
+                    var fixityDigests = invertedFixityMap.get(contentPath);
+                    if (fixityDigests != null) {
+                        expectations.putAll(fixityDigests);
+                    }
+
+                    try (var contentStream = new BufferedInputStream(storage.readFile(storagePath))) {
+                        var wrapped = MultiDigestInputStream.create(contentStream, expectations.keySet());
+
+                        while (wrapped.read() != -1) {
+                            // read entire stream
+                        }
+
+                        var actualDigests = wrapped.getResults();
+
+                        expectations.forEach((algorithm, expected) -> {
+                            var actual = actualDigests.get(algorithm);
+                            if (!expected.equalsIgnoreCase(actual)) {
+                                var code = algorithm.equals(contentAlgorithm) ? ValidationCode.E092 : ValidationCode.E093;
+                                results.addIssue(code,
+                                        "File %s failed %s fixity check. Expected: %s; Actual: %s",
+                                        storagePath, algorithm.getOcflName(), expected, actual);
+                            }
+                        });
+                    } catch (Exception e) {
+                        results.addIssue(ValidationCode.E092,
+                                "Failed to validate fixity of %s: %s", storagePath, e.getMessage());
+                    }
+                }
+            }
+        }
+    }
+
     private void validateVersionDirContents(String objectRootPath,
                                             String versionStr,
                                             String versionPath,
@@ -257,7 +353,7 @@ public class Validator {
                 continue;
             }
 
-            if (file.getType() == Listing.Type.File) {
+            if (file.isFile()) {
                 results.addIssue(ValidationCode.E015,
                         "Version directory %s in %s contains an unexpected file %s",
                         objectRootPath, versionStr, fileName);
@@ -323,13 +419,13 @@ public class Validator {
             }
 
             if (Objects.equals(OcflConstants.LOGS_DIR, fileName)) {
-                if (file.getType() == Listing.Type.File) {
+                if (file.isFile()) {
                     results.addIssue(ValidationCode.E001,
                             "Object logs directory at %s/logs must be a directory",
                             objectRootPath);
                 }
             } else if (Objects.equals(OcflConstants.EXTENSIONS_DIR, fileName)) {
-                if (file.getType() == Listing.Type.File) {
+                if (file.isFile()) {
                     results.addIssue(ValidationCode.E001,
                             "Object extensions directory at %s/extensions must be a directory",
                             objectRootPath);
@@ -337,7 +433,7 @@ public class Validator {
                 // TODO verify extensions contents -- warnings
             } else {
                 var versionNum = parseVersionNum(fileName);
-                if (versionNum != null && file.getType() == Listing.Type.File) {
+                if (versionNum != null && file.isFile()) {
                     results.addIssue(ValidationCode.E001,
                             "Object root %s contains version %s but it is a file and must be a directory",
                             objectRootPath);
@@ -426,6 +522,47 @@ public class Validator {
             return OcflConstants.DEFAULT_CONTENT_DIRECTORY;
         }
         return content;
+    }
+
+    private Set<String> getManifestPaths(SimpleInventory inventory) {
+        if (inventory.getManifest() == null) {
+            return new HashSet<>();
+        }
+
+        return inventory.getManifest().values().stream()
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
+    }
+
+    private Set<String> getFixityPaths(SimpleInventory inventory) {
+        if (inventory.getFixity() == null) {
+            return new HashSet<>();
+        }
+
+        return inventory.getFixity().values()
+                .stream().flatMap(e -> e.values().stream())
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
+    }
+
+    private Map<String, Map<DigestAlgorithm, String>> invertFixity(SimpleInventory inventory) {
+        if (inventory.getFixity() == null) {
+            return new HashMap<>();
+        }
+
+        var inverted = new HashMap<String, Map<DigestAlgorithm, String>>();
+
+        inventory.getFixity().forEach((algorithmStr, map) -> {
+            var algorithm = DigestAlgorithmRegistry.getAlgorithm(algorithmStr);
+            map.forEach((digest, paths) -> {
+                paths.forEach(path -> {
+                    inverted.computeIfAbsent(path, k -> new HashMap<>())
+                            .put(algorithm, digest);
+                });
+            });
+        });
+
+        return inverted;
     }
 
     private Optional<ValidationIssue> areEqual(Object left, Object right, ValidationCode code, String messageTemplate, Object... args) {

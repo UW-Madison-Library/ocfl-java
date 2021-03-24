@@ -30,12 +30,31 @@ import java.util.List;
 // TODO
 public interface Storage {
 
+    /**
+     * Return a list of all of the files an directories contained in the specified directory.
+     * An empty list is returned if the directory does not exist or has no children. If recursion
+     * is specified, then only leaf nodes are returned.
+     *
+     * @param directoryPath the path to the directory to list
+     * @param recursive if children should be recursively listed
+     * @return list of children
+     */
     List<Listing> listDirectory(String directoryPath, boolean recursive);
 
+    /**
+     * Indicates if the file exists
+     *
+     * @param filePath path to the file
+     * @return true if it exists
+     */
     boolean fileExists(String filePath);
 
-    boolean fileNotExists(String filePath);
-
+    /**
+     * Streams the content of the specified file
+     *
+     * @param filePath path to the file
+     * @return input stream of file content
+     */
     InputStream readFile(String filePath);
 
 }
