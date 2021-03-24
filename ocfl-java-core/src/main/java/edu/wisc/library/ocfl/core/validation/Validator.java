@@ -34,6 +34,7 @@ import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.ObjectPaths;
 import edu.wisc.library.ocfl.core.util.FileUtil;
 import edu.wisc.library.ocfl.core.validation.model.SimpleInventory;
+import edu.wisc.library.ocfl.core.validation.storage.Storage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,6 +79,8 @@ public class Validator {
 
     public ValidationResults validateObject(String objectRootPath, boolean contentFixityCheck) {
         var results = new ValidationResults();
+
+        // TODO figure out how to handle links
 
         // TODO this is only true for OCFL 1.0
         var namasteFile = ObjectPaths.objectNamastePath(objectRootPath);

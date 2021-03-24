@@ -22,39 +22,56 @@
  * THE SOFTWARE.
  */
 
-package edu.wisc.library.ocfl.core.validation;
+package edu.wisc.library.ocfl.core.validation.storage;
 
-import java.io.InputStream;
-import java.util.List;
+import edu.wisc.library.ocfl.api.util.Enforce;
 
 // TODO
-public interface Storage {
+public class Listing {
 
-    /**
-     * Return a list of all of the files an directories contained in the specified directory.
-     * An empty list is returned if the directory does not exist or has no children. If recursion
-     * is specified, then only leaf nodes are returned.
-     *
-     * @param directoryPath the path to the directory to list
-     * @param recursive if children should be recursively listed
-     * @return list of children
-     */
-    List<Listing> listDirectory(String directoryPath, boolean recursive);
+    public enum Type {
+        Directory,
+        File,
+    }
 
-    /**
-     * Indicates if the file exists
-     *
-     * @param filePath path to the file
-     * @return true if it exists
-     */
-    boolean fileExists(String filePath);
+    private final Type type;
+    private final String relativePath;
 
-    /**
-     * Streams the content of the specified file
-     *
-     * @param filePath path to the file
-     * @return input stream of file content
-     */
-    InputStream readFile(String filePath);
+    public static Listing file(String relativePath) {
+        return new Listing(Type.File, relativePath);
+    }
+
+    public static Listing directory(String relativePath) {
+        return new Listing(Type.Directory, relativePath);
+    }
+
+    public Listing(Type type, String relativePath) {
+        this.type = Enforce.notNull(type, "type cannot be null");
+        this.relativePath = Enforce.notNull(relativePath, "relativePath cannot be null");
+    }
+
+    public String getRelativePath() {
+        return relativePath;
+    }
+
+    public Type getType() {
+        return type;
+    }
+
+    public boolean isFile() {
+        return type == Type.File;
+    }
+
+    public boolean isDirectory() {
+        return type == Type.Directory;
+    }
+
+    @Override
+    public String toString() {
+        return "Listing{" +
+                "type=" + type +
+                ", relativePath='" + relativePath + '\'' +
+                '}';
+    }
 
 }
