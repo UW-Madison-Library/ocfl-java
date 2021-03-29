@@ -87,39 +87,30 @@ public class SimpleInventoryParser {
             switch (fieldName) {
                 case SimpleInventory.ID_KEY:
                     inventory.setId(parseString(field,
-                            () -> results.addIssue(ValidationCode.E036, "Inventory id cannot be null in %s",
-                                    inventoryPath),
                             () -> results.addIssue(ValidationCode.E037,
                                     "Inventory id must be a string in %s",
                                     inventoryPath)));
                     break;
                 case SimpleInventory.TYPE_KEY:
                     inventory.setType(parseString(field,
-                            () -> results.addIssue(ValidationCode.E036, "Inventory type cannot be null in %s",
-                                    inventoryPath),
                             () -> results.addIssue(ValidationCode.E038,
                                     "Inventory type must be a string in %s",
                                     inventoryPath)));
                     break;
                 case SimpleInventory.DIGEST_ALGO_KEY:
                     inventory.setDigestAlgorithm(parseString(field,
-                            () -> results.addIssue(ValidationCode.E036, "Inventory digest algorithm cannot be null in %s",
-                                    inventoryPath),
                             () -> results.addIssue(ValidationCode.E033,
                                     "Inventory digest algorithm must be a string in %s",
                                     inventoryPath)));
                     break;
                 case SimpleInventory.HEAD_KEY:
                     inventory.setHead(parseString(field,
-                            () -> results.addIssue(ValidationCode.E036, "Inventory head cannot be null in %s",
-                                    inventoryPath),
                             () -> results.addIssue(ValidationCode.E040,
                                     "Inventory head must be a string in %s",
                                     inventoryPath)));
                     break;
                 case SimpleInventory.CONTENT_DIR_KEY:
                     inventory.setContentDirectory(parseString(field,
-                            () -> {},
                             () -> results.addIssue(ValidationCode.E033,
                                     "Inventory content directory must be a string in %s",
                                     inventoryPath)));
@@ -153,15 +144,12 @@ public class SimpleInventoryParser {
             switch (fieldName) {
                 case SimpleVersion.CREATED_KEY:
                     version.setCreated(parseString(field,
-                            () -> results.addIssue(ValidationCode.E048,
-                                    "Inventory version %s must contain a created timestamp in %s",
-                                    versionNum, inventoryPath),
                             () -> results.addIssue(ValidationCode.E049,
                                     "Inventory version %s created timestamp must be a string in %s",
                                     versionNum, inventoryPath)));
                     break;
                 case SimpleVersion.MESSAGE_KEY:
-                    version.setMessage(parseString(field, () -> {},
+                    version.setMessage(parseString(field,
                             () -> results.addIssue(ValidationCode.E094,
                                     "Inventory version %s message must be a string in %s",
                                     versionNum, inventoryPath)));
@@ -196,15 +184,11 @@ public class SimpleInventoryParser {
                         case SimpleUser.NAME_KEY:
                             user.setName(parseString(field,
                                     () -> results.addIssue(ValidationCode.E054,
-                                            "Inventory version %s user name cannot be null in %s",
-                                            versionNum, inventoryPath),
-                                    () -> results.addIssue(ValidationCode.E054,
                                             "Inventory version %s user name must be a string in %s",
                                             versionNum, inventoryPath)));
                             break;
                         case SimpleUser.ADDRESS_KEY:
                             user.setAddress(parseString(field,
-                                    () -> {},
                                     () -> results.addIssue(ValidationCode.E033,
                                             "Inventory version %s user address must be a string in %s",
                                             versionNum, inventoryPath)));
@@ -230,9 +214,7 @@ public class SimpleInventoryParser {
         Map<String, List<String>> manifest = null;
 
         if (field.isNull()) {
-            results.addIssue(ValidationCode.E041,
-                    "Inventory manifest cannot be null in %s",
-                    inventoryPath);
+            // nothing to do
         } else if (field.isObject()) {
             manifest = parseDigestPathsMap(field,
                     () -> results.addIssue(ValidationCode.E096,
@@ -263,9 +245,7 @@ public class SimpleInventoryParser {
         Map<String, SimpleVersion> versions = null;
 
         if (field.isNull()) {
-            results.addIssue(ValidationCode.E043,
-                    "Inventory versions cannot be null in %s",
-                    inventoryPath);
+            // nothing to do
         } else if (field.isObject()) {
             versions = new HashMap<>();
 
@@ -304,9 +284,7 @@ public class SimpleInventoryParser {
         Map<String, List<String>> state = null;
 
         if (stateNode.isNull()) {
-            results.addIssue(ValidationCode.E048,
-                    "Inventory version %s must contain a state in %s",
-                    versionNum, inventoryPath);
+            // Nothing to do
         } else if (stateNode.isObject()) {
             state = parseDigestPathsMap(stateNode,
                     () -> results.addIssue(ValidationCode.E050,
@@ -355,7 +333,7 @@ public class SimpleInventoryParser {
                                 "Inventory fixity for %s cannot be null in %s",
                                 algorithm, inventoryPath);
                     } else if (digestsNode.isObject()) {
-                        var fixitySection = parseDigestPathsMap(field,
+                        var fixitySection = parseDigestPathsMap(digestsNode,
                                 () -> results.addIssue(ValidationCode.E057,
                                         "Inventory fixity algorithm %s cannot contain null digests in %s",
                                         algorithm, inventoryPath),
@@ -426,11 +404,11 @@ public class SimpleInventoryParser {
         return map;
     }
 
-    private String parseString(JsonNode field, Runnable isNull, Runnable isWrongType) {
+    private String parseString(JsonNode field, Runnable isWrongType) {
         String value = null;
 
         if (field.isNull()) {
-            isNull.run();
+            // nothing to do
         } else if (field.isTextual()) {
             value = field.textValue();
         } else {

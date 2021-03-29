@@ -24,11 +24,12 @@
 
 package edu.wisc.library.ocfl.core.validation;
 
-import at.favre.lib.bytes.Bytes;
 import edu.wisc.library.ocfl.api.DigestAlgorithmRegistry;
 import edu.wisc.library.ocfl.api.OcflConstants;
 import edu.wisc.library.ocfl.api.exception.OcflIOException;
 import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
+import edu.wisc.library.ocfl.api.model.OcflObjectVersion;
+import edu.wisc.library.ocfl.api.model.OcflVersion;
 import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.ObjectPaths;
@@ -41,7 +42,7 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.DigestInputStream;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -60,7 +61,7 @@ public class Validator {
             DigestAlgorithm.sha256, DigestAlgorithm.sha512
     };
 
-    private static final String OBJECT_NAMASTE_CONTENTS = OcflConstants.OBJECT_NAMASTE_1_0 + "\n";
+    private static final String OBJECT_NAMASTE_CONTENTS = OcflVersion.OCFL_1_0.getOcflObjectVersion() + "\n";
 
     private static final Set<String> OBJECT_ROOT_FILES = Set.of(
             OcflConstants.OBJECT_NAMASTE_1_0,
@@ -187,7 +188,7 @@ public class Validator {
             // TODO should be a warning if it does not exist
         }
 
-        validateVersionDirContents(objectRootPath, versionStr, objectRootPath, ignoreFiles, results);
+        validateVersionDirContents(objectRootPath, versionStr, versionPath, ignoreFiles, results);
     }
 
     private void validateHeadVersion(String objectRootPath,
@@ -219,7 +220,7 @@ public class Validator {
             // TODO should be a warning if it does not exist
         }
 
-        validateVersionDirContents(objectRootPath, versionStr, objectRootPath, ignoreFiles, results);
+        validateVersionDirContents(objectRootPath, versionStr, versionPath, ignoreFiles, results);
     }
 
     private void validateVersionState(String versionStr,
@@ -275,7 +276,7 @@ public class Validator {
                 } else {
                     if (!manifestPaths.remove(contentPath)) {
                         results.addIssue(ValidationCode.E023,
-                                "Object contains a file with in version content at %s that is not referenced in the manifest",
+                                "Object contains a file in version content at %s that is not referenced in the manifest",
                                 fullPath);
                     }
                     fixityPaths.remove(contentPath);
@@ -285,7 +286,7 @@ public class Validator {
 
         manifestPaths.forEach(contentPath -> {
             results.addIssue(ValidationCode.E092,
-                    "Inventory manifest contains content path %s but this file does not exist in %s",
+                    "Inventory manifest contains content path %s but this file does not exist in a version content directory in %s",
                     contentPath, objectRootPath);
         });
 
@@ -371,7 +372,7 @@ public class Validator {
             var contents = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             // TODO there are technically multiple different codes that could be used here
             if (!OBJECT_NAMASTE_CONTENTS.equals(contents)) {
-                results.addIssue(ValidationCode.E002,
+                results.addIssue(ValidationCode.E007,
                         "OCFL object version declaration must be '%s' in %s",
                         OcflConstants.OBJECT_NAMASTE_1_0, namasteFile);
             }
@@ -394,6 +395,11 @@ public class Validator {
                     results.addIssue(ValidationCode.E060,
                             "Inventory at %s does not match expected %s digest. Expected: %s; Found: %s",
                             sidecarPath, algorithm.getOcflName(), digest, parts[0]);
+                }
+
+                if (!OcflConstants.INVENTORY_FILE.equals(parts[1])) {
+                    results.addIssue(ValidationCode.E061,
+                            "Inventory sidecar file at %s is in an invalid format", sidecarPath);
                 }
 
                 return parts[0];
@@ -480,30 +486,14 @@ public class Validator {
                                        ValidationResults results,
                                        DigestAlgorithm... digestAlgorithms) {
         try (var stream = storage.readFile(inventoryPath)) {
-            var wrapped = stream;
-            Map<DigestAlgorithm, DigestInputStream> digestStreams = null;
-
-            if (digestAlgorithms != null && digestAlgorithms.length > 0) {
-                digestStreams = new HashMap<>(digestAlgorithms.length);
-
-                for (var algorithm : digestAlgorithms) {
-                    var digestStream = new DigestInputStream(wrapped, algorithm.getMessageDigest());
-                    digestStreams.put(algorithm, digestStream);
-                    wrapped = digestStream;
-                }
-            }
+            var wrapped = MultiDigestInputStream.create(stream, Arrays.asList(digestAlgorithms));
 
             var parseResult = inventoryParser.parse(wrapped, inventoryPath);
 
             results.addAll(parseResult.getValidationResults());
 
-            var result = new ParseResult(parseResult.getInventory(), parseResult.getValidationResults().hasErrors());
-
-            if (digestStreams != null) {
-                digestStreams.forEach((algorithm, digestStream) -> {
-                    result.withDigest(algorithm, Bytes.wrap(digestStream.getMessageDigest().digest()).encodeHex());
-                });
-            }
+            var result = new ParseResult(parseResult.getInventory(), !parseResult.getValidationResults().hasErrors());
+            wrapped.getResults().forEach(result::withDigest);
 
             return result;
         } catch (IOException e) {

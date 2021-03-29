@@ -60,7 +60,7 @@ public class SimpleInventoryValidator {
 
     private static final Map<String, Integer> DIGEST_LENGTHS = Map.of(
             DigestAlgorithm.md5.getOcflName(), 32,
-            DigestAlgorithm.sha1.getOcflName(), 41,
+            DigestAlgorithm.sha1.getOcflName(), 40,
             DigestAlgorithm.sha256.getOcflName(), 64,
             DigestAlgorithm.sha512.getOcflName(), 128,
             DigestAlgorithm.blake2b512.getOcflName(), 128,
@@ -74,7 +74,7 @@ public class SimpleInventoryValidator {
 
     public SimpleInventoryValidator() {
         lowerHexChars = new BitSet();
-        for (int i = '0'; i <= '0'; i++) {
+        for (int i = '0'; i <= '9'; i++) {
             lowerHexChars.set(i);
         }
         for (int i = 'a'; i <= 'f'; i++) {
@@ -89,14 +89,16 @@ public class SimpleInventoryValidator {
 
         var results = new ValidationResults();
 
-        results.addIssue(ifNotNull(inventory.getId(), () -> notBlank(inventory.getId(), ValidationCode.E036,
-                "Inventory id cannot be blank in %s", inventoryPath)))
+        results.addIssue(notBlank(inventory.getId(), ValidationCode.E036, "Inventory id cannot be blank in %s", inventoryPath))
+                .addIssue(notNull(inventory.getType(), ValidationCode.E036, "Inventory type cannot be null in %s", inventoryPath))
                 .addIssue(ifNotNull(inventory.getType(), () -> isTrue(inventory.getType().equals(InventoryType.OCFL_1_0.getId()),
                         ValidationCode.E038,
                         "Inventory type must equal '%s' in %s", InventoryType.OCFL_1_0.getId(), inventoryPath)))
+                .addIssue(notNull(inventory.getDigestAlgorithm(), ValidationCode.E036, "Inventory digest algorithm cannot be null in %s", inventoryPath))
                 .addIssue(ifNotNull(inventory.getDigestAlgorithm(), () -> isTrue(ALLOWED_CONTENT_DIGESTS.contains(inventory.getDigestAlgorithm()),
                         ValidationCode.E025,
-                        "Inventory digest algorithm must be one of %s in %s", ALLOWED_CONTENT_DIGESTS, inventoryPath)));
+                        "Inventory digest algorithm must be one of %s in %s", ALLOWED_CONTENT_DIGESTS, inventoryPath)))
+                .addIssue(notNull(inventory.getHead(), ValidationCode.E036, "Inventory head cannot be null in %s", inventoryPath));
 
         if (inventory.getHead() != null) {
             parseAndValidateVersionNum(inventory.getHead(), inventoryPath, results);
@@ -104,9 +106,9 @@ public class SimpleInventoryValidator {
 
         if (inventory.getContentDirectory() != null) {
             var content = inventory.getContentDirectory();
-            results.addIssue(isTrue(content.contains("/"), ValidationCode.E017,
+            results.addIssue(isFalse(content.contains("/"), ValidationCode.E017,
                     "Inventory content directory cannot contain '/' in %s", inventoryPath))
-                    .addIssue(isTrue(content.equals(".") || content.equals(".."), ValidationCode.E018,
+                    .addIssue(isFalse(content.equals(".") || content.equals(".."), ValidationCode.E018,
                             "Inventory content directory cannot equal '.' or '..' in %s", inventoryPath));
         }
 
@@ -155,6 +157,10 @@ public class SimpleInventoryValidator {
                             "Inventory manifest content paths must be non-conflicting in %s. Found conflicting path: %s",
                             inventoryPath, path)
                     );
+        } else {
+            results.addIssue(ValidationCode.E041,
+                    "Inventory manifest cannot be null in %s",
+                    inventoryPath);
         }
     }
 
@@ -173,6 +179,17 @@ public class SimpleInventoryValidator {
                                 "Inventory version %s created timestamp must be formatted in accordance to RFC3339 in %s. Found: %s",
                                 versionNum, inventoryPath, version.getCreated());
                     }
+                } else {
+                    results.addIssue(ValidationCode.E048,
+                            "Inventory version %s must contain a created timestamp in %s",
+                            versionNum, inventoryPath);
+                }
+
+                if (version.getUser() != null) {
+                    var user = version.getUser();
+                    results.addIssue(notBlank(user.getName(), ValidationCode.E054,
+                            "Inventory version %s user name cannot be blank in %s",
+                            versionNum, inventoryPath));
                 }
 
                 if (version.getState() != null) {
@@ -201,8 +218,16 @@ public class SimpleInventoryValidator {
                                     "Inventory version %s paths must be non-conflicting in %s. Found conflicting path: %s",
                                     versionNum, inventoryPath, path)
                             );
+                } else {
+                    results.addIssue(ValidationCode.E048,
+                            "Inventory version %s must contain a state in %s",
+                            versionNum, inventoryPath);
                 }
             }
+        } else {
+            results.addIssue(ValidationCode.E043,
+                    "Inventory versions cannot be null in %s",
+                    inventoryPath);
         }
     }
 
@@ -250,7 +275,7 @@ public class SimpleInventoryValidator {
                     }
                 }
 
-                results.addIssue(isTrue(!inconsistentPadding, ValidationCode.E013,
+                results.addIssue(isFalse(inconsistentPadding, ValidationCode.E013,
                         "Inventory versions contain inconsistently padded version numbers in %s", inventoryPath));
 
                 var highestVersion = versions.last();
@@ -356,7 +381,10 @@ public class SimpleInventoryValidator {
                     }
 
                     if (i < parts.length - 1) {
-                        pathBuilder.append("/").append(part);
+                        if (i > 0) {
+                            pathBuilder.append("/");
+                        }
+                        pathBuilder.append(part);
                         dirs.add(pathBuilder.toString());
                     }
                 }
@@ -423,6 +451,13 @@ public class SimpleInventoryValidator {
         return Optional.empty();
     }
 
+    private Optional<ValidationIssue> isFalse(boolean condition, ValidationCode code, String messageTemplate, Object... args) {
+        if (condition) {
+            return Optional.of(createIssue(code, messageTemplate, args));
+        }
+        return Optional.empty();
+    }
+
     private boolean isInvalidVersionNum(String num) {
         return num == null || !VALID_VERSION.matcher(num).matches();
     }
@@ -436,7 +471,7 @@ public class SimpleInventoryValidator {
 
     private boolean isDigestValidHex(String lowerDigest, String algorithm) {
         // can't validate something we don't have info on
-        if (algorithm == null || !DIGEST_LENGTHS.containsKey(algorithm)) {
+        if (!(algorithm == null || !DIGEST_LENGTHS.containsKey(algorithm))) {
             var length = DIGEST_LENGTHS.get(algorithm);
 
             if (lowerDigest.length() != length) {
