@@ -31,6 +31,8 @@ import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.validation.model.SimpleInventory;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
@@ -118,15 +120,26 @@ public class SimpleInventoryValidator {
         var results = new ValidationResults();
 
         results.addIssue(notBlank(inventory.getId(), ValidationCode.E036, "Inventory id must be set in %s", inventoryPath))
+                .addIssue(ifNotNull(inventory.getId(), () -> isTrue(isUri(inventory.getId()),
+                        ValidationCode.W005,
+                        "Inventory id should be a URI in %s. Found: %s", inventoryPath, inventory.getId())))
                 .addIssue(notNull(inventory.getType(), ValidationCode.E036, "Inventory type must be set in %s", inventoryPath))
                 .addIssue(ifNotNull(inventory.getType(), () -> isTrue(inventory.getType().equals(InventoryType.OCFL_1_0.getId()),
                         ValidationCode.E038,
                         "Inventory type must equal '%s' in %s", InventoryType.OCFL_1_0.getId(), inventoryPath)))
                 .addIssue(notNull(inventory.getDigestAlgorithm(), ValidationCode.E036, "Inventory digest algorithm must be set in %s", inventoryPath))
-                .addIssue(ifNotNull(inventory.getDigestAlgorithm(), () -> isTrue(ALLOWED_CONTENT_DIGESTS.contains(inventory.getDigestAlgorithm()),
-                        ValidationCode.E025,
-                        "Inventory digest algorithm must be one of %s in %s", ALLOWED_CONTENT_DIGESTS, inventoryPath)))
                 .addIssue(notNull(inventory.getHead(), ValidationCode.E036, "Inventory head must be set in %s", inventoryPath));
+
+        if (inventory.getDigestAlgorithm() != null) {
+            results.addIssue(isTrue(ALLOWED_CONTENT_DIGESTS.contains(inventory.getDigestAlgorithm()),
+                    ValidationCode.E025,
+                    "Inventory digest algorithm must be one of %s in %s. Found: %s",
+                    ALLOWED_CONTENT_DIGESTS, inventoryPath, inventory.getDigestAlgorithm()))
+                .addIssue(isTrue(DigestAlgorithm.sha512.getOcflName().equals(inventory.getDigestAlgorithm()),
+                        ValidationCode.W004,
+                        "Inventory digest algorithm should be %s in %s. Found: %s",
+                        DigestAlgorithm.sha512.getOcflName(), inventoryPath, inventory.getDigestAlgorithm()));
+        }
 
         if (inventory.getHead() != null) {
             parseAndValidateVersionNum(inventory.getHead(), inventoryPath, results);
@@ -216,7 +229,25 @@ public class SimpleInventoryValidator {
                     var user = version.getUser();
                     results.addIssue(notBlank(user.getName(), ValidationCode.E054,
                             "Inventory version %s user name must be set in %s",
-                            versionNum, inventoryPath));
+                            versionNum, inventoryPath))
+                            .addIssue(notNull(user.getAddress(), ValidationCode.W008,
+                                    "Inventory version %s user address should be set in %s",
+                                    versionNum, inventoryPath));
+                    if (user.getAddress() != null) {
+                        results.addIssue(isTrue(isUri(user.getAddress()), ValidationCode.W009,
+                                "Inventory version %s user address should be a URI in %s. Found: %s",
+                                versionNum, inventoryPath, user.getAddress()));
+                    }
+                } else {
+                    results.addIssue(ValidationCode.W007,
+                            "Inventory version %s should contain a user in %s",
+                            versionNum, inventoryPath);
+                }
+
+                if (version.getMessage() == null) {
+                    results.addIssue(ValidationCode.W007,
+                            "Inventory version %s should contain a message in %s",
+                            versionNum, inventoryPath);
                 }
 
                 if (version.getState() != null) {
@@ -483,6 +514,15 @@ public class SimpleInventoryValidator {
             return Optional.of(createIssue(code, messageTemplate, args));
         }
         return Optional.empty();
+    }
+
+    private boolean isUri(String value) {
+        try {
+            var uri = new URI(value);
+            return !(uri.getScheme() == null || uri.getScheme().isBlank());
+        } catch (URISyntaxException e) {
+            return false;
+        }
     }
 
     private boolean isInvalidVersionNum(String num) {
