@@ -1,7 +1,7 @@
 {
   "digestAlgorithm": "sha512",
   "head": "v1",
-  "id": "ark:123/abc",
+  "id": "http://example.org/E058_no_sidecar",
   "manifest": {
     "43a43fe8a8a082d3b5343dfaf2fd0c8b8e370675b1f376e92e9994612c33ea255b11298269d72f797399ebb94edeefe53df243643676548f584fb8603ca53a0f": [
       "v1/content/a_file.txt"
@@ -10,16 +10,16 @@
   "type": "https://ocfl.io/1.0/spec/#inventory",
   "versions": {
     "v1": {
-      "created": "2021-03-29T19:50:12+05:00",
-      "message": "Just a file",
+      "created": "2020-05-21T19:00:00Z",
+      "message": "a version",
       "state": {
         "43a43fe8a8a082d3b5343dfaf2fd0c8b8e370675b1f376e92e9994612c33ea255b11298269d72f797399ebb94edeefe53df243643676548f584fb8603ca53a0f": [
           "a_file.txt"
         ]
       },
       "user": {
-        "name": "Arthur B Gone",
-        "address": "https://example.org/a_b_gone"
+        "name": "Other Person",
+	"address": "https://orcid.org/0123-0123-0123-012X"
       }
     }
   }

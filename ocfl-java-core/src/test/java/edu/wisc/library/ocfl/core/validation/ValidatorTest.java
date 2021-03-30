@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class ValidatorTest {
 
     private static final String OFFICIAL_BAD_FIXTURES = "official/bad-objects";
+    private static final String CUSTOM_BAD_FIXTURES = "custom/bad-objects";
 
     @BeforeAll
     public static void beforeAll() {
@@ -82,9 +83,9 @@ public class ValidatorTest {
     }
 
     @Test
-    public void errorOnNoObjectDeclaration() {
+    public void errorOnNoObjectDeclarationWithOtherIssues() {
         var name = "E003_no_decl";
-        var validator = createValidator(OFFICIAL_BAD_FIXTURES);
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
 
         var results = validator.validateObject(name, true);
 
@@ -92,10 +93,23 @@ public class ValidatorTest {
         assertHasError(results, ValidationCode.E003, "OCFL object version declaration must exist at E003_no_decl/0=ocfl_object_1.0");
         assertHasError(results, ValidationCode.E102, "Inventory version v1 cannot contain unknown property type in E003_no_decl/inventory.json");
         assertHasError(results, ValidationCode.E038, "Inventory type must equal 'https://ocfl.io/1.0/spec/#inventory' in E003_no_decl/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory head cannot be null in E003_no_decl/inventory.json");
+        assertHasError(results, ValidationCode.E036, "Inventory head must be set in E003_no_decl/inventory.json");
         assertHasError(results, ValidationCode.E048, "Inventory version v1 must contain a created timestamp in E003_no_decl/inventory.json");
         assertHasError(results, ValidationCode.E060, "Inventory at E003_no_decl/inventory.json.sha512 does not match expected sha512 digest. Expected: 1c27836424fc93b67d9eac795f234fcc8c3825d54c26ab7254dfbb47bf432a184df5e96e65bd4c1e2db4c0d5172ce2f0fc589fd6a6a30ebbec0aae7938318815; Found: 14f15a87d1f9d02c1bf9cf08d6c7f9af96d2a69a9715a8dbb2e938cba271e1f204f3b2b6d3df93ead1bb5b7b925fc23dc207207220aa190947349729c2c1f74a");
         assertHasError(results, ValidationCode.E061, "Inventory sidecar file at E003_no_decl/inventory.json.sha512 is in an invalid format");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnNoObjectDeclaration() {
+        var name = "E003_no_decl";
+        var validator = createValidator(OFFICIAL_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E003, "OCFL object version declaration must exist at E003_no_decl/0=ocfl_object_1.0");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -122,7 +136,7 @@ public class ValidatorTest {
 
         assertErrorCount(results, 2);
         assertHasError(results, ValidationCode.E008, "Inventory must contain at least one version E008_E036_no_versions_no_head/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory head cannot be null in E008_E036_no_versions_no_head/inventory.json");
+        assertHasError(results, ValidationCode.E036, "Inventory head must be set in E008_E036_no_versions_no_head/inventory.json");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -136,17 +150,17 @@ public class ValidatorTest {
 
         assertErrorCount(results, 20);
         assertHasError(results, ValidationCode.E102, "Inventory cannot contain unknown property digest in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory id cannot be blank in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory digest algorithm cannot be null in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory head cannot be null in E015_content_not_in_content_dir/v1/inventory.json");
+        assertHasError(results, ValidationCode.E036, "Inventory id must be set in E015_content_not_in_content_dir/v1/inventory.json");
+        assertHasError(results, ValidationCode.E036, "Inventory digest algorithm must be set in E015_content_not_in_content_dir/v1/inventory.json");
+        assertHasError(results, ValidationCode.E036, "Inventory head must be set in E015_content_not_in_content_dir/v1/inventory.json");
         assertHasError(results, ValidationCode.E037, "Inventory ID is inconsistent between versions in E015_content_not_in_content_dir/v1/inventory.json");
         assertHasError(results, ValidationCode.E040, "Inventory head must be v1 in E015_content_not_in_content_dir/v1/inventory.json");
         assertHasError(results, ValidationCode.E015, "Version directory E015_content_not_in_content_dir in v1 contains an unexpected file inventory.json.sha512");
         assertHasError(results, ValidationCode.E015, "Version directory E015_content_not_in_content_dir in v1 contains an unexpected file a_file.txt");
         assertHasError(results, ValidationCode.E102, "Inventory cannot contain unknown property digest in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory id cannot be blank in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory digest algorithm cannot be null in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory head cannot be null in E015_content_not_in_content_dir/v2/inventory.json");
+        assertHasError(results, ValidationCode.E036, "Inventory id must be set in E015_content_not_in_content_dir/v2/inventory.json");
+        assertHasError(results, ValidationCode.E036, "Inventory digest algorithm must be set in E015_content_not_in_content_dir/v2/inventory.json");
+        assertHasError(results, ValidationCode.E036, "Inventory head must be set in E015_content_not_in_content_dir/v2/inventory.json");
         assertHasError(results, ValidationCode.E037, "Inventory ID is inconsistent between versions in E015_content_not_in_content_dir/v2/inventory.json");
         assertHasError(results, ValidationCode.E040, "Inventory head must be v2 in E015_content_not_in_content_dir/v2/inventory.json");
         assertHasError(results, ValidationCode.E015, "Version directory E015_content_not_in_content_dir in v2 contains an unexpected file inventory.json.sha512");
@@ -207,7 +221,7 @@ public class ValidatorTest {
         var results = validator.validateObject(name, true);
 
         assertErrorCount(results, 1);
-        assertHasError(results, ValidationCode.E036, "Inventory id cannot be blank in E036_no_id/inventory.json");
+        assertHasError(results, ValidationCode.E036, "Inventory id must be set in E036_no_id/inventory.json");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -235,8 +249,7 @@ public class ValidatorTest {
 
         assertErrorCount(results, 2);
         assertHasError(results, ValidationCode.E040, "Inventory head must be a string in E040_wrong_head_format/inventory.json");
-        // TODO this is not ideal...
-        assertHasError(results, ValidationCode.E036, "Inventory head cannot be null in E040_wrong_head_format/inventory.json");
+        assertHasError(results, ValidationCode.E036, "Inventory head must be set in E040_wrong_head_format/inventory.json");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -249,7 +262,7 @@ public class ValidatorTest {
         var results = validator.validateObject(name, true);
 
         assertErrorCount(results, 1);
-        assertHasError(results, ValidationCode.E041, "Inventory manifest cannot be null in E041_no_manifest/inventory.json");
+        assertHasError(results, ValidationCode.E041, "Inventory manifest must be set in E041_no_manifest/inventory.json");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -267,8 +280,7 @@ public class ValidatorTest {
         assertInfoCount(results, 0);
     }
 
-    // TODO must validate time is granular to at least seconds
-//    @Test
+    @Test
     public void errorOnTimeNotInSeconds() {
         var name = "E049_created_not_to_seconds";
         var validator = createValidator(OFFICIAL_BAD_FIXTURES);
@@ -276,7 +288,7 @@ public class ValidatorTest {
         var results = validator.validateObject(name, true);
 
         assertErrorCount(results, 1);
-        assertHasError(results, ValidationCode.E049, "Inventory version v1 created timestamp must be formatted in accordance to RFC3339 in E049_created_no_timezone/inventory.json. Found: 2019-01-01T02:03:04");
+        assertHasError(results, ValidationCode.E049, "Inventory version v1 created timestamp must be formatted in accordance to RFC3339 in E049_created_not_to_seconds/inventory.json. Found: 2019-01-01T01:02Z");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -294,7 +306,7 @@ public class ValidatorTest {
         assertHasError(results, ValidationCode.E094, "Inventory version v1 message must be a string in E049_E050_E054_bad_version_block_values/inventory.json");
         assertHasError(results, ValidationCode.E054, "Inventory version v1 user must be an object in E049_E050_E054_bad_version_block_values/inventory.json");
         assertHasError(results, ValidationCode.E048, "Inventory version v1 must contain a created timestamp in E049_E050_E054_bad_version_block_values/inventory.json");
-        assertHasError(results, ValidationCode.E054, "Inventory version v1 user name cannot be blank in E049_E050_E054_bad_version_block_values/inventory.json");
+        assertHasError(results, ValidationCode.E054, "Inventory version v1 user name must be set in E049_E050_E054_bad_version_block_values/inventory.json");
         assertHasError(results, ValidationCode.E048, "Inventory version v1 must contain a state in E049_E050_E054_bad_version_block_values/inventory.json");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
@@ -316,9 +328,9 @@ public class ValidatorTest {
     }
 
     @Test
-    public void errorOnNoSidecar() {
+    public void errorOnNoSidecarWithOtherIssues() {
         var name = "E058_no_sidecar";
-        var validator = createValidator(OFFICIAL_BAD_FIXTURES);
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
 
         var results = validator.validateObject(name, true);
 
@@ -326,7 +338,20 @@ public class ValidatorTest {
         assertHasError(results, ValidationCode.E058, "Inventory sidecar missing at E058_no_sidecar/inventory.json.sha512");
         assertHasError(results, ValidationCode.E023, "Object contains a file in version content at E058_no_sidecar/v1/content/file.txt that is not referenced in the manifest");
         assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v1/content/a_file.txt but this file does not exist in a version content directory in E058_no_sidecar");
-        assertHasError(results, ValidationCode.E092, "Failed to validate fixity of E058_no_sidecar/v1/content/a_file.txt: NoSuchFileException: src/test/resources/fixtures/official/bad-objects/E058_no_sidecar/v1/content/a_file.txt");
+        assertHasError(results, ValidationCode.E092, "Failed to validate fixity of E058_no_sidecar/v1/content/a_file.txt: NoSuchFileException: src/test/resources/fixtures/custom/bad-objects/E058_no_sidecar/v1/content/a_file.txt");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnNoSidecar() {
+        var name = "E058_no_sidecar";
+        var validator = createValidator(OFFICIAL_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E058, "Inventory sidecar missing at E058_no_sidecar/inventory.json.sha512");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }

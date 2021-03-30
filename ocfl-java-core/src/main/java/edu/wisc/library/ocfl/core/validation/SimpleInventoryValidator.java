@@ -31,7 +31,8 @@ import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.validation.model.SimpleInventory;
 
-import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.util.BitSet;
 import java.util.Collections;
@@ -45,6 +46,14 @@ import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
+
+import static java.time.temporal.ChronoField.DAY_OF_MONTH;
+import static java.time.temporal.ChronoField.HOUR_OF_DAY;
+import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
+import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
+import static java.time.temporal.ChronoField.YEAR;
 
 // TODO rename?
 public class SimpleInventoryValidator {
@@ -70,6 +79,25 @@ public class SimpleInventoryValidator {
             DigestAlgorithm.sha512_256.getOcflName(), 64
     );
 
+    private static final DateTimeFormatter RFC3339_FORMAT = new DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
+            .appendValue(YEAR, 4)
+            .appendLiteral('-')
+            .appendValue(MONTH_OF_YEAR, 2)
+            .appendLiteral('-')
+            .appendValue(DAY_OF_MONTH, 2)
+            .appendLiteral('T')
+            .appendValue(HOUR_OF_DAY, 2)
+            .appendLiteral(':')
+            .appendValue(MINUTE_OF_HOUR, 2)
+            .appendLiteral(':')
+            .appendValue(SECOND_OF_MINUTE, 2)
+            .optionalStart()
+            .appendFraction(NANO_OF_SECOND, 0, 9, true)
+            .optionalEnd()
+            .appendOffset("+HH:MM", "Z")
+            .toFormatter();
+
     private final BitSet lowerHexChars;
 
     public SimpleInventoryValidator() {
@@ -89,16 +117,16 @@ public class SimpleInventoryValidator {
 
         var results = new ValidationResults();
 
-        results.addIssue(notBlank(inventory.getId(), ValidationCode.E036, "Inventory id cannot be blank in %s", inventoryPath))
-                .addIssue(notNull(inventory.getType(), ValidationCode.E036, "Inventory type cannot be null in %s", inventoryPath))
+        results.addIssue(notBlank(inventory.getId(), ValidationCode.E036, "Inventory id must be set in %s", inventoryPath))
+                .addIssue(notNull(inventory.getType(), ValidationCode.E036, "Inventory type must be set in %s", inventoryPath))
                 .addIssue(ifNotNull(inventory.getType(), () -> isTrue(inventory.getType().equals(InventoryType.OCFL_1_0.getId()),
                         ValidationCode.E038,
                         "Inventory type must equal '%s' in %s", InventoryType.OCFL_1_0.getId(), inventoryPath)))
-                .addIssue(notNull(inventory.getDigestAlgorithm(), ValidationCode.E036, "Inventory digest algorithm cannot be null in %s", inventoryPath))
+                .addIssue(notNull(inventory.getDigestAlgorithm(), ValidationCode.E036, "Inventory digest algorithm must be set in %s", inventoryPath))
                 .addIssue(ifNotNull(inventory.getDigestAlgorithm(), () -> isTrue(ALLOWED_CONTENT_DIGESTS.contains(inventory.getDigestAlgorithm()),
                         ValidationCode.E025,
                         "Inventory digest algorithm must be one of %s in %s", ALLOWED_CONTENT_DIGESTS, inventoryPath)))
-                .addIssue(notNull(inventory.getHead(), ValidationCode.E036, "Inventory head cannot be null in %s", inventoryPath));
+                .addIssue(notNull(inventory.getHead(), ValidationCode.E036, "Inventory head must be set in %s", inventoryPath));
 
         if (inventory.getHead() != null) {
             parseAndValidateVersionNum(inventory.getHead(), inventoryPath, results);
@@ -159,7 +187,7 @@ public class SimpleInventoryValidator {
                     );
         } else {
             results.addIssue(ValidationCode.E041,
-                    "Inventory manifest cannot be null in %s",
+                    "Inventory manifest must be set in %s",
                     inventoryPath);
         }
     }
@@ -172,8 +200,7 @@ public class SimpleInventoryValidator {
 
                 if (version.getCreated() != null) {
                     try {
-                        // TODO not sure if this covers all possible formats
-                        OffsetDateTime.parse(version.getCreated());
+                        RFC3339_FORMAT.parse(version.getCreated());
                     } catch (DateTimeParseException e) {
                         results.addIssue(ValidationCode.E049,
                                 "Inventory version %s created timestamp must be formatted in accordance to RFC3339 in %s. Found: %s",
@@ -188,7 +215,7 @@ public class SimpleInventoryValidator {
                 if (version.getUser() != null) {
                     var user = version.getUser();
                     results.addIssue(notBlank(user.getName(), ValidationCode.E054,
-                            "Inventory version %s user name cannot be blank in %s",
+                            "Inventory version %s user name must be set in %s",
                             versionNum, inventoryPath));
                 }
 
@@ -226,7 +253,7 @@ public class SimpleInventoryValidator {
             }
         } else {
             results.addIssue(ValidationCode.E043,
-                    "Inventory versions cannot be null in %s",
+                    "Inventory versions must be set in %s",
                     inventoryPath);
         }
     }
