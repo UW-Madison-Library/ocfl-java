@@ -24,6 +24,7 @@
 
 package edu.wisc.library.ocfl.core.validation.storage;
 
+import edu.wisc.library.ocfl.api.exception.NotFoundException;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.storage.cloud.CloudClient;
 import edu.wisc.library.ocfl.core.storage.cloud.KeyNotFoundException;
@@ -77,7 +78,11 @@ public class CloudStorage implements Storage {
 
     @Override
     public InputStream readFile(String filePath) {
-        return client.downloadStream(filePath);
+        try {
+            return client.downloadStream(filePath);
+        } catch (KeyNotFoundException e) {
+            throw new NotFoundException(String.format("%s was not found", filePath), e);
+        }
     }
 
 }

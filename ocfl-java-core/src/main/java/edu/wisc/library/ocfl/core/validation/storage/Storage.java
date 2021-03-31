@@ -24,6 +24,8 @@
 
 package edu.wisc.library.ocfl.core.validation.storage;
 
+import edu.wisc.library.ocfl.api.exception.NotFoundException;
+
 import java.io.InputStream;
 import java.util.List;
 
@@ -54,6 +56,7 @@ public interface Storage {
      *
      * @param filePath path to the file
      * @return input stream of file content
+     * @throws NotFoundException when the file does not exist
      */
     InputStream readFile(String filePath);
 

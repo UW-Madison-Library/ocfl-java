@@ -24,6 +24,7 @@
 
 package edu.wisc.library.ocfl.core.validation.storage;
 
+import edu.wisc.library.ocfl.api.exception.NotFoundException;
 import edu.wisc.library.ocfl.api.exception.OcflIOException;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.util.FileUtil;
@@ -32,6 +33,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -72,6 +74,8 @@ public class FileSystemStorage implements Storage {
     public InputStream readFile(String filePath) {
         try {
             return Files.newInputStream(storageRoot.resolve(filePath));
+        } catch (NoSuchFileException e) {
+            throw new NotFoundException(String.format("%s was not found", filePath), e);
         } catch (IOException e) {
             throw new OcflIOException(e);
         }

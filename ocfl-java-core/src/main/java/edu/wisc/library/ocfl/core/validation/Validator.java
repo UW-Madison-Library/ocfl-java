@@ -26,14 +26,13 @@ package edu.wisc.library.ocfl.core.validation;
 
 import edu.wisc.library.ocfl.api.DigestAlgorithmRegistry;
 import edu.wisc.library.ocfl.api.OcflConstants;
+import edu.wisc.library.ocfl.api.exception.NotFoundException;
 import edu.wisc.library.ocfl.api.exception.OcflIOException;
 import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
 import edu.wisc.library.ocfl.api.model.OcflVersion;
 import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.ObjectPaths;
-import edu.wisc.library.ocfl.core.extension.ExtensionSupportEvaluator;
-import edu.wisc.library.ocfl.core.extension.UnsupportedExtensionBehavior;
 import edu.wisc.library.ocfl.core.extension.storage.layout.FlatLayoutExtension;
 import edu.wisc.library.ocfl.core.extension.storage.layout.HashedNTupleIdEncapsulationLayoutExtension;
 import edu.wisc.library.ocfl.core.extension.storage.layout.HashedNTupleLayoutExtension;
@@ -48,9 +47,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -142,7 +141,7 @@ public class Validator {
 
             var rootDigest = inventoryDigests.get(DigestAlgorithmRegistry.getAlgorithm(rootInventory.getDigestAlgorithm()));
 
-            rootInventory.getVersions().keySet().forEach(versionStr -> {
+            seenVersions.forEach(versionStr -> {
                 if (Objects.equals(rootInventory.getHead(), versionStr)) {
                     validateHeadVersion(objectRootPath, rootInventory, rootDigest, results);
                 } else {
@@ -182,14 +181,18 @@ public class Validator {
                 validateSidecar(inventoryPath, inventory, parseResult.digests, results)
                         .ifPresent(ignoreFiles::add);
 
+                var versionContentDir = defaultedContentDir(inventory);
+
                 // TODO suspect code
                 results.addIssue(areEqual(rootInventory.getId(), inventory.getId(), ValidationCode.E037,
-                        "Inventory id is inconsistent between versions in %s", inventoryPath))
+                        "Inventory id is inconsistent between versions in %s. Expected: %s; Found: %s",
+                        inventoryPath, rootInventory.getId(), inventory.getId()))
                         // TODO suspect code
                         .addIssue(areEqual(versionStr, inventory.getHead(), ValidationCode.E040,
                                 "Inventory head must be %s in %s", versionStr, inventoryPath))
-                        .addIssue(areEqual(contentDir, defaultedContentDir(inventory), ValidationCode.E019,
-                                "Inventory content directory is inconsistent between versions in %s", inventoryPath));
+                        .addIssue(areEqual(contentDir, versionContentDir, ValidationCode.E019,
+                                "Inventory content directory is inconsistent between versions in %s. Expected: %s; Found: %s",
+                                inventoryPath, contentDir, versionContentDir));
 
                 if (parseResult.isValid && !validationResults.hasErrors()) {
                     if (Objects.equals(rootInventory.getDigestAlgorithm(), inventory.getDigestAlgorithm())) {
@@ -223,13 +226,18 @@ public class Validator {
             ignoreFiles.add(OcflConstants.INVENTORY_SIDECAR_PREFIX + rootInventory.getDigestAlgorithm());
 
             var sidecarPath = inventoryPath + "." + rootInventory.getDigestAlgorithm();
-            var actualDigest = validateInventorySidecar(sidecarPath,
-                    DigestAlgorithmRegistry.getAlgorithm(rootInventory.getDigestAlgorithm()),
-                    rootDigest, results);
+            var sidecarDigest = validateInventorySidecar(sidecarPath, results);
+            var inventoryDigest = computeInventoryDigest(inventoryPath, DigestAlgorithmRegistry.getAlgorithm(rootInventory.getDigestAlgorithm()));
 
-            if (!rootDigest.equalsIgnoreCase(actualDigest)) {
+            if (!rootDigest.equalsIgnoreCase(inventoryDigest)) {
                 results.addIssue(ValidationCode.E064,
-                        "The inventory at %s must be identical to the inventory in the object root", inventoryPath);
+                        "Inventory at %s must be identical to the inventory in the object root", inventoryPath);
+            }
+
+            if (sidecarDigest != null && !sidecarDigest.equalsIgnoreCase(inventoryDigest)) {
+                results.addIssue(ValidationCode.E060,
+                        "Inventory at %s does not match expected %s digest. Expected: %s; Found: %s",
+                        inventoryPath, rootInventory.getDigestAlgorithm(), sidecarDigest, inventoryDigest);
             }
         } else {
             results.addIssue(ValidationCode.W010, "Every version should contain an inventory. Missing: %s", inventoryPath);
@@ -358,6 +366,8 @@ public class Validator {
                                         storagePath, algorithm.getOcflName(), expected, actual);
                             }
                         });
+                    } catch (NotFoundException e) {
+                        // Ignore this. We already reported missing files.
                     } catch (Exception e) {
                         results.addIssue(ValidationCode.E092,
                                 "Failed to validate fixity of %s: %s", storagePath, e.getMessage());
@@ -414,7 +424,7 @@ public class Validator {
         }
     }
 
-    private String validateInventorySidecar(String sidecarPath, DigestAlgorithm algorithm, String digest, ValidationResults results) {
+    private String validateInventorySidecar(String sidecarPath, ValidationResults results) {
         try (var stream = storage.readFile(sidecarPath)) {
             var parts = new String(stream.readAllBytes(), StandardCharsets.UTF_8).split("\\s+");
 
@@ -423,12 +433,6 @@ public class Validator {
                         "Inventory sidecar file at %s is in an invalid format", sidecarPath);
 
             } else {
-                if (!digest.equalsIgnoreCase(parts[0])) {
-                    results.addIssue(ValidationCode.E060,
-                            "Inventory at %s does not match expected %s digest. Expected: %s; Found: %s",
-                            sidecarPath, algorithm.getOcflName(), digest, parts[0]);
-                }
-
                 if (!OcflConstants.INVENTORY_FILE.equals(parts[1])) {
                     results.addIssue(ValidationCode.E061,
                             "Inventory sidecar file at %s is in an invalid format", sidecarPath);
@@ -530,7 +534,12 @@ public class Validator {
 
             if (digest != null) {
                 var sidecarPath = inventoryPath + "." + inventory.getDigestAlgorithm();
-                validateInventorySidecar(sidecarPath, algorithm, digest, results);
+                var expectedDigest = validateInventorySidecar(sidecarPath, results);
+                if (expectedDigest != null && !digest.equalsIgnoreCase(expectedDigest)) {
+                    results.addIssue(ValidationCode.E060,
+                            "Inventory at %s does not match expected %s digest. Expected: %s; Found: %s",
+                            inventoryPath, algorithm.getOcflName(), expectedDigest, digest);
+                }
                 return Optional.of(OcflConstants.INVENTORY_SIDECAR_PREFIX + inventory.getDigestAlgorithm());
             }
         }
@@ -551,6 +560,18 @@ public class Validator {
             wrapped.getResults().forEach(result::withDigest);
 
             return result;
+        } catch (IOException e) {
+            throw new OcflIOException(e);
+        }
+    }
+
+    private String computeInventoryDigest(String inventoryPath, DigestAlgorithm algorithm) {
+        try (var stream = storage.readFile(inventoryPath)) {
+            var wrapped = MultiDigestInputStream.create(stream, List.of(algorithm));
+            while (wrapped.read() > 0) {
+                // consume stream
+            }
+            return wrapped.getResults().get(algorithm);
         } catch (IOException e) {
             throw new OcflIOException(e);
         }
@@ -602,12 +623,14 @@ public class Validator {
 
         inventory.getFixity().forEach((algorithmStr, map) -> {
             var algorithm = DigestAlgorithmRegistry.getAlgorithm(algorithmStr);
-            map.forEach((digest, paths) -> {
-                paths.forEach(path -> {
-                    inverted.computeIfAbsent(path, k -> new HashMap<>())
-                            .put(algorithm, digest);
+            if (algorithm != null) {
+                map.forEach((digest, paths) -> {
+                    paths.forEach(path -> {
+                        inverted.computeIfAbsent(path, k -> new HashMap<>())
+                                .put(algorithm, digest);
+                    });
                 });
-            });
+            }
         });
 
         return inverted;

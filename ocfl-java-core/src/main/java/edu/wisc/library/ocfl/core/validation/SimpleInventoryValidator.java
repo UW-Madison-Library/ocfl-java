@@ -24,7 +24,6 @@
 
 package edu.wisc.library.ocfl.core.validation;
 
-import edu.wisc.library.ocfl.api.DigestAlgorithmRegistry;
 import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
 import edu.wisc.library.ocfl.api.model.InventoryType;
 import edu.wisc.library.ocfl.api.model.VersionNum;
@@ -57,16 +56,18 @@ import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
 import static java.time.temporal.ChronoField.YEAR;
 
-// TODO rename?
+/**
+ * Validates the contents of a SimpleInventory object against the OCFL v1.0 spec
+ */
 public class SimpleInventoryValidator {
 
     private static final Pattern VALID_VERSION = Pattern.compile("^v\\d+$");
 
     private static final VersionNum VERSION_ZERO = VersionNum.fromInt(0);
 
-    private static final Set<String> ALLOWED_CONTENT_DIGESTS = Set.of(
-            DigestAlgorithm.sha256.getOcflName(),
-            DigestAlgorithm.sha512.getOcflName()
+    private static final List<String> ALLOWED_CONTENT_DIGESTS = List.of(
+            DigestAlgorithm.sha512.getOcflName(),
+            DigestAlgorithm.sha256.getOcflName()
     );
 
     private static final Map<String, Integer> DIGEST_LENGTHS = Map.of(
@@ -112,8 +113,15 @@ public class SimpleInventoryValidator {
         }
     }
 
+    /**
+     * Validates the specified inventory and returns an object contain any issues that were found.
+     *
+     * @param inventory the inventory to validate
+     * @param inventoryPath  the path to the inventory
+     * @return the validation results
+     */
     public ValidationResults validateInventory(SimpleInventory inventory,
-                                                        String inventoryPath) {
+                                               String inventoryPath) {
         Enforce.notNull(inventory, "inventory cannot be null");
         Enforce.notNull(inventoryPath, "inventoryPath cannot be null");
 
@@ -131,14 +139,16 @@ public class SimpleInventoryValidator {
                 .addIssue(notNull(inventory.getHead(), ValidationCode.E036, "Inventory head must be set in %s", inventoryPath));
 
         if (inventory.getDigestAlgorithm() != null) {
-            results.addIssue(isTrue(ALLOWED_CONTENT_DIGESTS.contains(inventory.getDigestAlgorithm()),
-                    ValidationCode.E025,
-                    "Inventory digest algorithm must be one of %s in %s. Found: %s",
-                    ALLOWED_CONTENT_DIGESTS, inventoryPath, inventory.getDigestAlgorithm()))
-                .addIssue(isTrue(DigestAlgorithm.sha512.getOcflName().equals(inventory.getDigestAlgorithm()),
+            if (!ALLOWED_CONTENT_DIGESTS.contains(inventory.getDigestAlgorithm())) {
+                results.addIssue(ValidationCode.E025,
+                        "Inventory digest algorithm must be one of %s in %s. Found: %s",
+                        ALLOWED_CONTENT_DIGESTS, inventoryPath, inventory.getDigestAlgorithm());
+            } else {
+                results.addIssue(isTrue(DigestAlgorithm.sha512.getOcflName().equals(inventory.getDigestAlgorithm()),
                         ValidationCode.W004,
                         "Inventory digest algorithm should be %s in %s. Found: %s",
                         DigestAlgorithm.sha512.getOcflName(), inventoryPath, inventory.getDigestAlgorithm()));
+            }
         }
 
         if (inventory.getHead() != null) {
@@ -302,7 +312,7 @@ public class SimpleInventoryValidator {
                 var versions = new TreeSet<String>(Comparator.naturalOrder());
                 versions.addAll(inventory.getVersions().keySet());
 
-                var previousVersion = VersionNum.fromInt(0);
+                long previousNum = 0;
                 Integer paddingWidth = null;
                 boolean inconsistentPadding = false;
 
@@ -312,16 +322,16 @@ public class SimpleInventoryValidator {
                     if (parsed.isPresent()) {
                         var currentNum = parsed.get();
 
-                        var next = previousVersion.nextVersionNum();
+                        var nextNum = previousNum + 1;
 
-                        if (next.equals(currentNum)) {
+                        if (currentNum.getVersionNum() == nextNum) {
                             if (paddingWidth == null) {
                                 paddingWidth = currentNum.getZeroPaddingWidth();
                             } else if (!inconsistentPadding) {
                                 inconsistentPadding = paddingWidth != currentNum.getZeroPaddingWidth();
                             }
                         } else {
-                            var missing = next;
+                            var missing = new VersionNum(nextNum, currentNum.getZeroPaddingWidth());
                             while (!missing.equals(currentNum)) {
                                 results.addIssue(ValidationCode.E044,
                                         "Inventory versions is missing an entry for version %s in %s", missing, inventoryPath);
@@ -329,7 +339,7 @@ public class SimpleInventoryValidator {
                             }
                         }
 
-                        previousVersion = currentNum;
+                        previousNum = currentNum.getVersionNum();
                     }
                 }
 
@@ -340,7 +350,8 @@ public class SimpleInventoryValidator {
 
                 if (highestVersion != null && inventory.getHead() != null) {
                     results.addIssue(isTrue(highestVersion.equals(inventory.getHead()), ValidationCode.E040,
-                            "Inventory head must be the highest version number in %s", inventoryPath));
+                            "Inventory head must be the highest version number in %s. Expected: %s; Found: %s",
+                            inventoryPath, highestVersion, inventory.getHead()));
                 }
             } else {
                 results.addIssue(ValidationCode.E008,
@@ -357,12 +368,6 @@ public class SimpleInventoryValidator {
                 var algorithm = entry.getKey();
                 var digestMap = entry.getValue();
 
-                if (DigestAlgorithmRegistry.getAlgorithm(algorithm) == null) {
-                    results.addIssue(ValidationCode.E027,
-                            "Inventory fixity block contains unknown algorithm %s in %s",
-                            algorithm, inventoryPath);
-                }
-
                 if (digestMap != null) {
                     var digests = new HashSet<String>(digestMap.size());
                     for (var digest : digestMap.keySet()) {
@@ -370,7 +375,8 @@ public class SimpleInventoryValidator {
 
                         if (!isDigestValidHex(digestLower, algorithm)) {
                             results.addIssue(ValidationCode.E057,
-                                    "Inventory fixity block digests must be valid in %s. Found: %s", inventoryPath, digest);
+                                    "Inventory fixity block digests must be valid in %s. Found: %s",
+                                    inventoryPath, digest);
                         }
 
                         if (digests.contains(digestLower)) {
@@ -415,8 +421,19 @@ public class SimpleInventoryValidator {
 
         for (var paths : map.values()) {
             for (var path : paths) {
-                if (path.startsWith("/") || path.endsWith("/")) {
+                var trimmedPath = path;
+                var startsWith = path.startsWith("/");
+                var endsWith = path.endsWith("/");
+
+                if (startsWith || endsWith) {
                     leadingTrailingSlashes.accept(path);
+                    // Trim here so that we don't get empty part failures too
+                    if (startsWith) {
+                        trimmedPath = trimmedPath.substring(1);
+                    }
+                    if (endsWith) {
+                        trimmedPath = trimmedPath.substring(0, trimmedPath.length() - 1);
+                    }
                 }
 
                 if (files.contains(path)) {
@@ -425,17 +442,22 @@ public class SimpleInventoryValidator {
                     files.add(path);
                 }
 
-                var parts = path.split("/");
+                var parts = trimmedPath.split("/");
 
                 var pathBuilder = new StringBuilder();
+
+                var erroredBlank = false;
+                var erroredDot = false;
 
                 for (int i = 0; i < parts.length; i++) {
                     var part = parts[i];
 
-                    if (part.isEmpty()) {
+                    if (!erroredBlank && part.isEmpty()) {
                         blankPart.accept(path);
-                    } else if (part.equals(".") || part.equals("..")) {
+                        erroredBlank = true;
+                    } else if (!erroredDot && (part.equals(".") || part.equals(".."))) {
                         dotPart.accept(path);
+                        erroredDot = true;
                     }
 
                     if (i < parts.length - 1) {
@@ -479,7 +501,8 @@ public class SimpleInventoryValidator {
 
             if (parsed.equals(VERSION_ZERO)) {
                 results.addIssue(ValidationCode.E009,
-                        "Inventory version numbers must be greater than 0 in %s", inventoryPath);
+                        "Inventory version numbers must be greater than 0 in %s. Found: %s",
+                        inventoryPath, num);
             } else {
                 versionNum = Optional.of(parsed);
             }

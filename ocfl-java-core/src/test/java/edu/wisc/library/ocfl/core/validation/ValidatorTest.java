@@ -100,7 +100,7 @@ public class ValidatorTest {
         assertHasError(results, ValidationCode.E038, "Inventory type must equal 'https://ocfl.io/1.0/spec/#inventory' in E003_no_decl/inventory.json");
         assertHasError(results, ValidationCode.E036, "Inventory head must be set in E003_no_decl/inventory.json");
         assertHasError(results, ValidationCode.E048, "Inventory version v1 must contain a created timestamp in E003_no_decl/inventory.json");
-        assertHasError(results, ValidationCode.E060, "Inventory at E003_no_decl/inventory.json.sha512 does not match expected sha512 digest. Expected: 1c27836424fc93b67d9eac795f234fcc8c3825d54c26ab7254dfbb47bf432a184df5e96e65bd4c1e2db4c0d5172ce2f0fc589fd6a6a30ebbec0aae7938318815; Found: 14f15a87d1f9d02c1bf9cf08d6c7f9af96d2a69a9715a8dbb2e938cba271e1f204f3b2b6d3df93ead1bb5b7b925fc23dc207207220aa190947349729c2c1f74a");
+        assertHasError(results, ValidationCode.E060, "Inventory at E003_no_decl/inventory.json does not match expected sha512 digest. Expected: 14f15a87d1f9d02c1bf9cf08d6c7f9af96d2a69a9715a8dbb2e938cba271e1f204f3b2b6d3df93ead1bb5b7b925fc23dc207207220aa190947349729c2c1f74a; Found: 1c27836424fc93b67d9eac795f234fcc8c3825d54c26ab7254dfbb47bf432a184df5e96e65bd4c1e2db4c0d5172ce2f0fc589fd6a6a30ebbec0aae7938318815");
         assertHasError(results, ValidationCode.E061, "Inventory sidecar file at E003_no_decl/inventory.json.sha512 is in an invalid format");
         assertWarningsCount(results, 2);
         assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a user in E003_no_decl/inventory.json");
@@ -162,7 +162,7 @@ public class ValidatorTest {
         assertHasError(results, ValidationCode.E036, "Inventory id must be set in E015_content_not_in_content_dir/v1/inventory.json");
         assertHasError(results, ValidationCode.E036, "Inventory digest algorithm must be set in E015_content_not_in_content_dir/v1/inventory.json");
         assertHasError(results, ValidationCode.E036, "Inventory head must be set in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasError(results, ValidationCode.E037, "Inventory id is inconsistent between versions in E015_content_not_in_content_dir/v1/inventory.json");
+        assertHasError(results, ValidationCode.E037, "Inventory id is inconsistent between versions in E015_content_not_in_content_dir/v1/inventory.json. Expected: uri:something451; Found: null");
         assertHasError(results, ValidationCode.E040, "Inventory head must be v1 in E015_content_not_in_content_dir/v1/inventory.json");
         assertHasError(results, ValidationCode.E015, "Version directory v1 in E015_content_not_in_content_dir contains an unexpected file inventory.json.sha512");
         assertHasError(results, ValidationCode.E015, "Version directory v1 in E015_content_not_in_content_dir contains an unexpected file a_file.txt");
@@ -170,7 +170,7 @@ public class ValidatorTest {
         assertHasError(results, ValidationCode.E036, "Inventory id must be set in E015_content_not_in_content_dir/v2/inventory.json");
         assertHasError(results, ValidationCode.E036, "Inventory digest algorithm must be set in E015_content_not_in_content_dir/v2/inventory.json");
         assertHasError(results, ValidationCode.E036, "Inventory head must be set in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasError(results, ValidationCode.E037, "Inventory id is inconsistent between versions in E015_content_not_in_content_dir/v2/inventory.json");
+        assertHasError(results, ValidationCode.E037, "Inventory id is inconsistent between versions in E015_content_not_in_content_dir/v2/inventory.json. Expected: uri:something451; Found: null");
         assertHasError(results, ValidationCode.E040, "Inventory head must be v2 in E015_content_not_in_content_dir/v2/inventory.json");
         assertHasError(results, ValidationCode.E015, "Version directory v2 in E015_content_not_in_content_dir contains an unexpected file inventory.json.sha512");
         assertHasError(results, ValidationCode.E015, "Version directory v2 in E015_content_not_in_content_dir contains an unexpected file a_file.txt");
@@ -215,9 +215,8 @@ public class ValidatorTest {
 
         var results = validator.validateObject(name, true);
 
-        assertErrorCount(results, 2);
+        assertErrorCount(results, 1);
         assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v1/content/file2.txt but this file does not exist in a version content directory in E023_missing_file");
-        assertHasError(results, ValidationCode.E092, "Failed to validate fixity of E023_missing_file/v1/content/file2.txt: NoSuchFileException: src/test/resources/fixtures/official/bad-objects/E023_missing_file/v1/content/file2.txt");
         assertWarningsCount(results, 1);
         assertHasWarn(results, ValidationCode.W009, "Inventory version v1 user address should be a URI in E023_missing_file/inventory.json. Found: somewhere");
         assertInfoCount(results, 0);
@@ -258,7 +257,7 @@ public class ValidatorTest {
 
         assertErrorCount(results, 2);
         assertHasError(results, ValidationCode.E044, "Inventory versions is missing an entry for version v2 in E040_wrong_head_doesnt_exist/inventory.json");
-        assertHasError(results, ValidationCode.E040, "Inventory head must be the highest version number in E040_wrong_head_doesnt_exist/inventory.json");
+        assertHasError(results, ValidationCode.E040, "Inventory head must be the highest version number in E040_wrong_head_doesnt_exist/inventory.json. Expected: v1; Found: v2");
         assertWarningsCount(results, 2);
         assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a user in E040_wrong_head_doesnt_exist/inventory.json");
         assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a message in E040_wrong_head_doesnt_exist/inventory.json");
@@ -365,11 +364,10 @@ public class ValidatorTest {
 
         var results = validator.validateObject(name, true);
 
-        assertErrorCount(results, 4);
+        assertErrorCount(results, 3);
         assertHasError(results, ValidationCode.E058, "Inventory sidecar missing at E058_no_sidecar/inventory.json.sha512");
         assertHasError(results, ValidationCode.E023, "Object contains a file in version content at E058_no_sidecar/v1/content/file.txt that is not referenced in the manifest");
         assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v1/content/a_file.txt but this file does not exist in a version content directory in E058_no_sidecar");
-        assertHasError(results, ValidationCode.E092, "Failed to validate fixity of E058_no_sidecar/v1/content/a_file.txt: NoSuchFileException: src/test/resources/fixtures/custom/bad-objects/E058_no_sidecar/v1/content/a_file.txt");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -394,9 +392,8 @@ public class ValidatorTest {
 
         var results = validator.validateObject(name, true);
 
-        assertErrorCount(results, 2);
-        assertHasError(results, ValidationCode.E060, "Inventory at E064_different_root_and_latest_inventories/v1/inventory.json.sha512 does not match expected sha512 digest. Expected: 5177ce7b5024f8f41efcf65af6c02d097004a95fe57d430cd407c013b0d836e075df59f8451ab94e494ec2088903e4ef15db0cc27f1f3cc8b9be034b86ae5955; Found: 07105e1ed1a523e668913476c1713b430318d873f175cea39d0554324eca2d5b62fcec98b14c1619a4c8acacfdb1520348e125d51c5e9c9074f1ed08497501e9");
-        assertHasError(results, ValidationCode.E064, "The inventory at E064_different_root_and_latest_inventories/v1/inventory.json must be identical to the inventory in the object root");
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E064, "Inventory at E064_different_root_and_latest_inventories/v1/inventory.json must be identical to the inventory in the object root");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -426,6 +423,391 @@ public class ValidatorTest {
 
         assertErrorCount(results, 1);
         assertHasError(results, ValidationCode.E095, "Inventory version v1 paths must be non-conflicting in E095_conflicting_logical_paths/inventory.json. Found conflicting path: sub-path");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnIncorrectContentDigest() {
+        var name = "E025_E001_wrong_digest_algorithm";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 2);
+        assertHasError(results, ValidationCode.E025, "Inventory digest algorithm must be one of [sha512, sha256] in E025_E001_wrong_digest_algorithm/inventory.json. Found: md5");
+        assertHasError(results, ValidationCode.E001, "Object root E025_E001_wrong_digest_algorithm contains an unexpected file inventory.json.md5");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnMissingHeadField() {
+        var name = "E036_no_head";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E036, "Inventory head must be set in E036_no_head/inventory.json");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnInvalidHeadVersion() {
+        var name = "E011_E001_invalid_head_version_format";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 3);
+        assertHasError(results, ValidationCode.E011, "Inventory contains invalid version number in E011_E001_invalid_head_version_format/inventory.json. Found: 1");
+        assertHasError(results, ValidationCode.E011, "Inventory contains invalid version number in E011_E001_invalid_head_version_format/inventory.json. Found: 1");
+        assertHasError(results, ValidationCode.E001, "Object root E011_E001_invalid_head_version_format contains an unexpected file 1");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnInvalidZeroPaddedHeadVersion() {
+        var name = "E013_invalid_padded_head_version";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E013, "Inventory versions contain inconsistently padded version numbers in E013_invalid_padded_head_version/inventory.json");
+        assertWarningsCount(results, 9);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnSkippedVersions() {
+        var name = "E044_skipped_versions";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 3);
+        assertHasError(results, ValidationCode.E044, "Inventory versions is missing an entry for version v2 in E044_skipped_versions/inventory.json");
+        assertHasError(results, ValidationCode.E044, "Inventory versions is missing an entry for version v3 in E044_skipped_versions/inventory.json");
+        assertHasError(results, ValidationCode.E044, "Inventory versions is missing an entry for version v6 in E044_skipped_versions/inventory.json");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnMissingVersions() {
+        var name = "E010_missing_versions";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E010, "Object root at E010_missing_versions is missing version directory v3");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnRootInventoryDigestMismatch() {
+        var name = "E060_E064_root_inventory_digest_mismatch";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 2);
+        assertHasError(results, ValidationCode.E060, "Inventory at E060_E064_root_inventory_digest_mismatch/inventory.json does not match expected sha512 digest. Expected: cb7a451c595050e0e50d979b79bce86e28728b8557a3cf4ea430114278b5411c7bad6a7ecc1f4d0250e94f9d8add3b648194d75a74c0cb14c4439f427829569e; Found: 5bf08b6519f6692cc83f3d275de1f02414a41972d069ac167c5cf34468fad82ae621c67e1ff58a8ef15d5f58a193aa1f037f588372bdfc33ae6c38a2b349d846");
+        assertHasError(results, ValidationCode.E064, "Inventory at E060_E064_root_inventory_digest_mismatch/v1/inventory.json must be identical to the inventory in the object root");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnVersionInventoryDigestMismatch() {
+        var name = "E060_version_inventory_digest_mismatch";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 3);
+        assertHasError(results, ValidationCode.E060, "Inventory at E060_version_inventory_digest_mismatch/v1/inventory.json does not match expected sha512 digest. Expected: cb7a451c595050e0e50d979b79bce86e28728b8557a3cf4ea430114278b5411c7bad6a7ecc1f4d0250e94f9d8add3b648194d75a74c0cb14c4439f427829569e; Found: 5bf08b6519f6692cc83f3d275de1f02414a41972d069ac167c5cf34468fad82ae621c67e1ff58a8ef15d5f58a193aa1f037f588372bdfc33ae6c38a2b349d846");
+        assertHasError(results, ValidationCode.E064, "Inventory at E060_version_inventory_digest_mismatch/v2/inventory.json must be identical to the inventory in the object root");
+        assertHasError(results, ValidationCode.E060, "Inventory at E060_version_inventory_digest_mismatch/v2/inventory.json does not match expected sha512 digest. Expected: 4c4299547f3a093936d99484f4ecb1a3b40368819b77d1f03593fdce7d67ef67a8f4c620737ffb3b8108f91f496a164682659b8d991ae60fb4c44b4aaa002485; Found: c56b92c06dd381999ef073476cee9a6ec5aed6a4c11ad74487bec838d532104456cd5575266dd8ae85529fd6b6e600023806601a3fe7f5affe9487701722fdb4");
+        assertWarningsCount(results, 1);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnInvalidContentDir() {
+        var name = "E017_invalid_content_dir";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E017, "Inventory content directory cannot contain '/' in E017_invalid_content_dir/inventory.json");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnRootInventoryNotMostRecent() {
+        var name = "E046_root_not_most_recent";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E046, "Object root E046_root_not_most_recent contains version directory v2 but the version does not exist in the root inventory");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnHeadNotMostRecent() {
+        var name = "E040_head_not_most_recent";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E040, "Inventory head must be the highest version number in E040_head_not_most_recent/inventory.json. Expected: v2; Found: v1");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnManifestDuplicateDigests() {
+        var name = "E096_manifest_duplicate_digests";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 2);
+        assertHasError(results, ValidationCode.E096, "Inventory manifest cannot contain duplicates of digest 24f950aac7b9ea9b3cb728228a0c82b67c39e96b4b344798870d5daee93e3ae5931baae8c7cacfea4b629452c38026a81d138bc7aad1af3ef7bfd5ec646d6c28 in E096_manifest_duplicate_digests/inventory.json");
+        assertHasError(results, ValidationCode.E101, "Inventory manifest content paths must be unique in E096_manifest_duplicate_digests/inventory.json. Found: v1/content/test.txt");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnInvalidContentPaths() {
+        var name = "E100_E099_manifest_invalid_content_paths";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 3);
+        assertHasError(results, ValidationCode.E099, "Inventory manifest cannot contain blank content path parts in E100_E099_manifest_invalid_content_paths/inventory.json. Found: v1/content//file-2.txt");
+        assertHasError(results, ValidationCode.E099, "Inventory manifest cannot contain content path parts equal to '.' or '..' in E100_E099_manifest_invalid_content_paths/inventory.json. Found: v1/content/../content/file-1.txt");
+        assertHasError(results, ValidationCode.E100, "Inventory manifest cannot contain content paths that begin or end with '/' in E100_E099_manifest_invalid_content_paths/inventory.json. Found: /v1/content/file-3.txt");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnNonUniqueContentPath() {
+        var name = "E101_non_unique_content_paths";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E101, "Inventory manifest content paths must be unique in E101_non_unique_content_paths/inventory.json. Found: v1/content/test.txt");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnLogicalPathReferencingNonExistentDigest() {
+        var name = "E050_missing_manifest_entry";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E050, "Inventory version v1 contains digest 07e41ccb166d21a5327d5a2ae1bb48192b8470e1357266c9d119c294cb1e95978569472c9de64fb6d93cbd4dd0aed0bf1e7c47fd1920de17b038a08a85eb4fa1 that does not exist in the manifest in E050_missing_manifest_entry/inventory.json");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnLogicalPathReferencesDigestDifferentCase() {
+        var name = "E050_manifest_digest_wrong_case";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E050, "Inventory version v1 contains digest 24F950AAC7B9EA9B3CB728228A0C82B67C39E96B4B344798870D5DAEE93E3AE5931BAAE8C7CACFEA4B629452C38026A81D138BC7AAD1AF3EF7BFD5EC646D6C28 that does not exist in the manifest in E050_manifest_digest_wrong_case/inventory.json");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnNonUniqueLogicalPath() {
+        var name = "E095_non_unique_logical_paths";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 2);
+        assertHasError(results, ValidationCode.E095, "Inventory version v1 paths must be unique in E095_non_unique_logical_paths/inventory.json. Found: file-1.txt");
+        assertHasError(results, ValidationCode.E095, "Inventory version v1 paths must be unique in E095_non_unique_logical_paths/inventory.json. Found: file-3.txt");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+
+    @Test
+    public void errorOnInvalidLogicalPaths() {
+        var name = "E053_E052_invalid_logical_paths";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 4);
+        assertHasError(results, ValidationCode.E052, "Inventory version v1 cannot contain path parts equal to '.' or '..' in E053_E052_invalid_logical_paths/inventory.json. Found: ../../file-2.txt");
+        assertHasError(results, ValidationCode.E053, "Inventory version v1 cannot contain paths that begin or end with '/' in E053_E052_invalid_logical_paths/inventory.json. Found: /file-1.txt");
+        assertHasError(results, ValidationCode.E053, "Inventory version v1 cannot contain paths that begin or end with '/' in E053_E052_invalid_logical_paths/inventory.json. Found: //file-3.txt");
+        assertHasError(results, ValidationCode.E052, "Inventory version v1 cannot contain blank path parts in E053_E052_invalid_logical_paths/inventory.json. Found: //file-3.txt");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnFixityDuplicateDigests() {
+        var name = "E097_fixity_duplicate_digests";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 2);
+        assertHasError(results, ValidationCode.E097, "Inventory fixity block cannot contain duplicates of digest eb1a3227cdc3fedbaec2fe38bf6c044a in E097_fixity_duplicate_digests/inventory.json");
+        assertHasError(results, ValidationCode.E101, "Inventory fixity block content paths must be unique in E097_fixity_duplicate_digests/inventory.json. Found: v1/content/test.txt");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnFixityInvalidContentPaths() {
+        var name = "E100_E099_fixity_invalid_content_paths";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 3);
+        assertHasError(results, ValidationCode.E099, "Inventory fixity block cannot contain content path parts equal to '.' or '..' in E100_E099_fixity_invalid_content_paths/inventory.json. Found: v1/content/../content/file-1.txt");
+        assertHasError(results, ValidationCode.E099, "Inventory fixity block cannot contain blank content path parts in E100_E099_fixity_invalid_content_paths/inventory.json. Found: v1/content//file-2.txt");
+        assertHasError(results, ValidationCode.E100, "Inventory fixity block cannot contain content paths that begin or end with '/' in E100_E099_fixity_invalid_content_paths/inventory.json. Found: /v1/content/file-3.txt");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnInvalidSidecar() {
+        var name = "E061_invalid_sidecar";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E061, "Inventory sidecar file at E061_invalid_sidecar/inventory.json.sha512 is in an invalid format");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnInconsistentId() {
+        var name = "E037_inconsistent_id";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E037, "Inventory id is inconsistent between versions in E037_inconsistent_id/v1/inventory.json. Expected: urn:example-2; Found: urn:example-two");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnWrongVersion() {
+        var name = "E040_wrong_version_in_version_dir";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E040, "Inventory head must be the highest version number in E040_wrong_version_in_version_dir/inventory.json. Expected: v3; Found: v2");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnInconsistentContentDir() {
+        var name = "E019_inconsistent_content_dir";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 2);
+        assertHasError(results, ValidationCode.E019, "Inventory content directory is inconsistent between versions in E019_inconsistent_content_dir/v1/inventory.json. Expected: content; Found: content-dir");
+        assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v1/content-dir/test.txt but this file does not exist in a version content directory in E019_inconsistent_content_dir");
+        assertWarningsCount(results, 1);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnInconsistentVersionState() {
+        var name = "E066_inconsistent_version_state";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E066, "The state of version v1 in E066_inconsistent_version_state/v1/inventory.json is inconsistent with the root inventory");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnContentPathDoesNotExist() {
+        var name = "E092_E093_content_path_does_not_exist";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 2);
+        assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v1/content/bonus.txt but this file does not exist in a version content directory in E092_E093_content_path_does_not_exist");
+        assertHasError(results, ValidationCode.E093, "Inventory fixity contains content path v1/content/bonus.txt but this file does not exist in E092_E093_content_path_does_not_exist");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnContentFileDoesNotMatchDigest() {
+        var name = "E092_content_file_digest_mismatch";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E092, "File E092_content_file_digest_mismatch/v1/content/test.txt failed sha512 fixity check. Expected: 24f950aac7b9ea9b3cb728228a0c82b67c39e96b4b344798870d5daee93e3ae5931baae8c7cacfea4b629452c38026a81d138bc7aad1af3ef7bfd5ec646d6c28; Actual: 1277a792c8196a2504007a40f31ed93bf826e71f16273d8503f7d3e46503d00b8d8cda0a59d6a33b9c1aebc84ea6a79f7062ee080f4a9587055a7b6fb92f5fa8");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnFixityDoesNotMatchDigest() {
+        var name = "E093_fixity_digest_mismatch";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E093, "File E093_fixity_digest_mismatch/v1/content/test.txt failed md5 fixity check. Expected: 9eacfb9289073dd9c9a8c4cdf820ac71; Actual: eb1a3227cdc3fedbaec2fe38bf6c044a");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }

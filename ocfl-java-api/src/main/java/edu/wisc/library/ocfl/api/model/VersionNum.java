@@ -139,8 +139,18 @@ public class VersionNum implements Comparable<VersionNum> {
         return new VersionNum(versionNumber - 1, zeroPaddingWidth);
     }
 
+    /**
+     * @return the zero-padding width, 0 when not padded
+     */
     public int getZeroPaddingWidth() {
         return zeroPaddingWidth;
+    }
+
+    /**
+     * @return the numeric version number
+     */
+    public long getVersionNum() {
+        return versionNumber;
     }
 
     @Override
