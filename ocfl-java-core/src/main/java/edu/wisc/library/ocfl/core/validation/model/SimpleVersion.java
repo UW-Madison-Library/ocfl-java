@@ -24,6 +24,7 @@
 
 package edu.wisc.library.ocfl.core.validation.model;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -39,6 +40,8 @@ public class SimpleVersion {
     private String message;
     private SimpleUser user;
     private Map<String, List<String>> state;
+
+    private Map<String, String> invertedState;
 
     public SimpleVersion() {
     }
@@ -88,6 +91,21 @@ public class SimpleVersion {
     public SimpleVersion setState(Map<String, List<String>> state) {
         this.state = state;
         return this;
+    }
+
+    public Map<String, String> getInvertedState() {
+        if (invertedState == null && state != null) {
+            invertedState = invertMap(state);
+        }
+        return invertedState;
+    }
+
+    private Map<String, String> invertMap(Map<String, List<String>> original) {
+        var inverted = new HashMap<String, String>(original.size());
+        original.forEach((key, values) -> {
+            values.forEach(value -> inverted.put(value, key));
+        });
+        return inverted;
     }
 
     @Override

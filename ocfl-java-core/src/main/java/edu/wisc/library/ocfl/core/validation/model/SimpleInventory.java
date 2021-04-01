@@ -24,6 +24,7 @@
 
 package edu.wisc.library.ocfl.core.validation.model;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,6 +48,8 @@ public class SimpleInventory {
     private Map<String, Map<String, List<String>>> fixity;
     private Map<String, List<String>> manifest;
     private Map<String, SimpleVersion> versions;
+
+    private Map<String, String> invertedManifest;
 
     public SimpleInventory() {
     }
@@ -139,6 +142,30 @@ public class SimpleInventory {
     public SimpleInventory setVersions(Map<String, SimpleVersion> versions) {
         this.versions = versions;
         return this;
+    }
+
+    public Map<String, String> getInvertedManifest() {
+        if (invertedManifest == null && manifest != null) {
+            invertedManifest = invertMap(manifest);
+        }
+        return invertedManifest;
+    }
+
+    public Map<String, String> getInvertedManifestCopy() {
+        if (invertedManifest == null && manifest != null) {
+            return invertMap(manifest);
+        } else if (invertedManifest != null) {
+            return new HashMap<>(invertedManifest);
+        }
+        return null;
+    }
+
+    private Map<String, String> invertMap(Map<String, List<String>> original) {
+        var inverted = new HashMap<String, String>(original.size());
+        original.forEach((key, values) -> {
+            values.forEach(value -> inverted.put(value, key));
+        });
+        return inverted;
     }
 
     @Override

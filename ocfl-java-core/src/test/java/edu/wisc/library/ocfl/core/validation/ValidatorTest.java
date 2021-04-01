@@ -151,50 +151,6 @@ public class ValidatorTest {
     }
 
     @Test
-    public void errorOnContentNotInContentDir() {
-        var name = "E015_content_not_in_content_dir";
-        var validator = createValidator(OFFICIAL_BAD_FIXTURES);
-
-        var results = validator.validateObject(name, true);
-
-        assertErrorCount(results, 20);
-        assertHasError(results, ValidationCode.E102, "Inventory cannot contain unknown property digest in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory id must be set in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory digest algorithm must be set in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory head must be set in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasError(results, ValidationCode.E037, "Inventory id is inconsistent between versions in E015_content_not_in_content_dir/v1/inventory.json. Expected: uri:something451; Found: null");
-        assertHasError(results, ValidationCode.E040, "Inventory head must be v1 in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasError(results, ValidationCode.E015, "Version directory v1 in E015_content_not_in_content_dir contains an unexpected file inventory.json.sha512");
-        assertHasError(results, ValidationCode.E015, "Version directory v1 in E015_content_not_in_content_dir contains an unexpected file a_file.txt");
-        assertHasError(results, ValidationCode.E102, "Inventory cannot contain unknown property digest in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory id must be set in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory digest algorithm must be set in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasError(results, ValidationCode.E036, "Inventory head must be set in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasError(results, ValidationCode.E037, "Inventory id is inconsistent between versions in E015_content_not_in_content_dir/v2/inventory.json. Expected: uri:something451; Found: null");
-        assertHasError(results, ValidationCode.E040, "Inventory head must be v2 in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasError(results, ValidationCode.E015, "Version directory v2 in E015_content_not_in_content_dir contains an unexpected file inventory.json.sha512");
-        assertHasError(results, ValidationCode.E015, "Version directory v2 in E015_content_not_in_content_dir contains an unexpected file a_file.txt");
-        assertHasError(results, ValidationCode.E015, "Version directory v3 in E015_content_not_in_content_dir contains an unexpected file a_file.txt");
-        assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v1/a_file.txt but this file does not exist in a version content directory in E015_content_not_in_content_dir");
-        assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v3/a_file.txt but this file does not exist in a version content directory in E015_content_not_in_content_dir");
-        assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v2/a_file.txt but this file does not exist in a version content directory in E015_content_not_in_content_dir");
-        assertWarningsCount(results, 12);
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a user in E015_content_not_in_content_dir/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a message in E015_content_not_in_content_dir/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v2 should contain a user in E015_content_not_in_content_dir/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v2 should contain a message in E015_content_not_in_content_dir/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v3 should contain a user in E015_content_not_in_content_dir/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v3 should contain a message in E015_content_not_in_content_dir/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a user in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a message in E015_content_not_in_content_dir/v1/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a user in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a message in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v2 should contain a user in E015_content_not_in_content_dir/v2/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v2 should contain a message in E015_content_not_in_content_dir/v2/inventory.json");
-        assertInfoCount(results, 0);
-    }
-
-    @Test
     public void errorOnExtraContentFile() {
         var name = "E023_extra_file";
         var validator = createValidator(OFFICIAL_BAD_FIXTURES);
@@ -202,7 +158,7 @@ public class ValidatorTest {
         var results = validator.validateObject(name, true);
 
         assertErrorCount(results, 1);
-        assertHasError(results, ValidationCode.E023, "Object contains a file in version content at E023_extra_file/v1/content/file2.txt that is not referenced in the manifest");
+        assertHasError(results, ValidationCode.E023, "Object contains a file in version content that is not referenced in the manifest of E023_extra_file/inventory.json: v1/content/file2.txt");
         assertWarningsCount(results, 1);
         assertHasWarn(results, ValidationCode.W009, "Inventory version v1 user address should be a URI in E023_extra_file/inventory.json. Found: somewhere");
         assertInfoCount(results, 0);
@@ -216,7 +172,7 @@ public class ValidatorTest {
         var results = validator.validateObject(name, true);
 
         assertErrorCount(results, 1);
-        assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v1/content/file2.txt but this file does not exist in a version content directory in E023_missing_file");
+        assertHasError(results, ValidationCode.E092, "Inventory manifest in E023_missing_file/inventory.json contains a content path that does not exist: v1/content/file2.txt");
         assertWarningsCount(results, 1);
         assertHasWarn(results, ValidationCode.W009, "Inventory version v1 user address should be a URI in E023_missing_file/inventory.json. Found: somewhere");
         assertInfoCount(results, 0);
@@ -366,8 +322,8 @@ public class ValidatorTest {
 
         assertErrorCount(results, 3);
         assertHasError(results, ValidationCode.E058, "Inventory sidecar missing at E058_no_sidecar/inventory.json.sha512");
-        assertHasError(results, ValidationCode.E023, "Object contains a file in version content at E058_no_sidecar/v1/content/file.txt that is not referenced in the manifest");
-        assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v1/content/a_file.txt but this file does not exist in a version content directory in E058_no_sidecar");
+        assertHasError(results, ValidationCode.E023, "Object contains a file in version content that is not referenced in the manifest of E058_no_sidecar/inventory.json: v1/content/file.txt");
+        assertHasError(results, ValidationCode.E092, "Inventory manifest in E058_no_sidecar/inventory.json contains a content path that does not exist: v1/content/a_file.txt");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -752,9 +708,10 @@ public class ValidatorTest {
 
         var results = validator.validateObject(name, true);
 
-        assertErrorCount(results, 2);
+        assertErrorCount(results, 3);
         assertHasError(results, ValidationCode.E019, "Inventory content directory is inconsistent between versions in E019_inconsistent_content_dir/v1/inventory.json. Expected: content; Found: content-dir");
-        assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v1/content-dir/test.txt but this file does not exist in a version content directory in E019_inconsistent_content_dir");
+        assertHasError(results, ValidationCode.E092, "Inventory manifest in E019_inconsistent_content_dir/v1/inventory.json contains a content path that does not exist: v1/content-dir/test.txt");
+        assertHasError(results, ValidationCode.E092, "Inventory manifest in E019_inconsistent_content_dir/inventory.json contains a content path that does not exist: v1/content-dir/test.txt");
         assertWarningsCount(results, 1);
         assertInfoCount(results, 0);
     }
@@ -766,8 +723,10 @@ public class ValidatorTest {
 
         var results = validator.validateObject(name, true);
 
-        assertErrorCount(results, 1);
-        assertHasError(results, ValidationCode.E066, "The state of version v1 in E066_inconsistent_version_state/v1/inventory.json is inconsistent with the root inventory");
+        assertErrorCount(results, 3);
+        assertHasError(results, ValidationCode.E066, "In E066_inconsistent_version_state/v1/inventory.json version v1's state contains a path that does not exist in the root inventory: 1.txt");
+        assertHasError(results, ValidationCode.E066, "In E066_inconsistent_version_state/v1/inventory.json version v1's state contains a path that does not exist in the root inventory: 2.txt");
+        assertHasError(results, ValidationCode.E066, "In E066_inconsistent_version_state/v1/inventory.json version v1's state contains a path that does not exist in the root inventory: 3.txt");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -780,8 +739,8 @@ public class ValidatorTest {
         var results = validator.validateObject(name, true);
 
         assertErrorCount(results, 2);
-        assertHasError(results, ValidationCode.E092, "Inventory manifest contains content path v1/content/bonus.txt but this file does not exist in a version content directory in E092_E093_content_path_does_not_exist");
-        assertHasError(results, ValidationCode.E093, "Inventory fixity contains content path v1/content/bonus.txt but this file does not exist in E092_E093_content_path_does_not_exist");
+        assertHasError(results, ValidationCode.E092, "Inventory manifest in E092_E093_content_path_does_not_exist/inventory.json contains a content path that does not exist: v1/content/bonus.txt");
+        assertHasError(results, ValidationCode.E093, "Inventory fixity in E092_E093_content_path_does_not_exist/inventory.json contains a content path that does not exist: v1/content/bonus.txt");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
@@ -808,6 +767,64 @@ public class ValidatorTest {
 
         assertErrorCount(results, 1);
         assertHasError(results, ValidationCode.E093, "File E093_fixity_digest_mismatch/v1/content/test.txt failed md5 fixity check. Expected: 9eacfb9289073dd9c9a8c4cdf820ac71; Actual: eb1a3227cdc3fedbaec2fe38bf6c044a");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnOldManifestMissingEntries() {
+        var name = "E023_old_manifest_missing_entries";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 1);
+        assertHasError(results, ValidationCode.E023, "Object contains a file in version content that is not referenced in the manifest of E023_old_manifest_missing_entries/v2/inventory.json: v1/content/file-3.txt");
+        assertWarningsCount(results, 0);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnDigestChangeStateMismatch() {
+        var name = "E066_algorithm_change_state_mismatch";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 4);
+        assertHasError(results, ValidationCode.E066, "In E066_algorithm_change_state_mismatch/v1/inventory.json version v1's state contains a path that is inconsistent with the root inventory: file-2.txt");
+        assertHasError(results, ValidationCode.E066, "In E066_algorithm_change_state_mismatch/v1/inventory.json version v1's state contains a path that is inconsistent with the root inventory: file-3.txt");
+        assertHasError(results, ValidationCode.E066, "In E066_algorithm_change_state_mismatch/v1/inventory.json version v1's state is missing a path that exist in the root inventory: changed");
+        assertHasError(results, ValidationCode.E066, "In E066_algorithm_change_state_mismatch/v1/inventory.json version v1's state contains a path that does not exist in the root inventory: file-1.txt");
+        assertWarningsCount(results, 1);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnAlgorithmChangeInvalidDigest() {
+        var name = "E093_algorithm_change_incorrect_digest";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 3);
+        assertHasError(results, ValidationCode.E093, "File E093_algorithm_change_incorrect_digest/v1/content/file-2.txt failed sha512 fixity check. Expected: 1fef2458ee1a9277925614272adfe60872f4c1bf02eecce7276166957d1ab30f65cf5c8065a294bf1b13e3c3589ba936a3b5db911572e30dfcb200ef71ad33d5; Actual: 9fef2458ee1a9277925614272adfe60872f4c1bf02eecce7276166957d1ab30f65cf5c8065a294bf1b13e3c3589ba936a3b5db911572e30dfcb200ef71ad33d5");
+        assertHasError(results, ValidationCode.E093, "File E093_algorithm_change_incorrect_digest/v1/content/file-3.txt failed sha512 fixity check. Expected: 13b26d26c9d8cfbb884b50e798f93ac6bef275a018547b1560af3e6d38f2723785731d3ca6338682fa7ac9acb506b3c594a125ce9d3d60cd14498304cc864cf2; Actual: b3b26d26c9d8cfbb884b50e798f93ac6bef275a018547b1560af3e6d38f2723785731d3ca6338682fa7ac9acb506b3c594a125ce9d3d60cd14498304cc864cf2");
+        assertHasError(results, ValidationCode.E093, "File E093_algorithm_change_incorrect_digest/v1/content/file-1.txt failed sha512 fixity check. Expected: 17e41ccb166d21a5327d5a2ae1bb48192b8470e1357266c9d119c294cb1e95978569472c9de64fb6d93cbd4dd0aed0bf1e7c47fd1920de17b038a08a85eb4fa1; Actual: 07e41ccb166d21a5327d5a2ae1bb48192b8470e1357266c9d119c294cb1e95978569472c9de64fb6d93cbd4dd0aed0bf1e7c47fd1920de17b038a08a85eb4fa1");
+        assertWarningsCount(results, 1);
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnManifestDigestWrongInOldVersion() {
+        var name = "E066_E092_old_manifest_digest_incorrect";
+        var validator = createValidator(CUSTOM_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 2);
+        assertHasError(results, ValidationCode.E066, "In E066_E092_old_manifest_digest_incorrect/v1/inventory.json version v1's state contains a path that is inconsistent with the root inventory: file-1.txt");
+        assertHasError(results, ValidationCode.E092, "Inventory manifest entry in E066_E092_old_manifest_digest_incorrect/v1/inventory.json for content path v1/content/file-1.txt differs from later versions. Expected: 07e41ccb166d21a5327d5a2ae1bb48192b8470e1357266c9d119c294cb1e95978569472c9de64fb6d93cbd4dd0aed0bf1e7c47fd1920de17b038a08a85eb4fa1; Found: 17e41ccb166d21a5327d5a2ae1bb48192b8470e1357266c9d119c294cb1e95978569472c9de64fb6d93cbd4dd0aed0bf1e7c47fd1920de17b038a08a85eb4fa1");
         assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
