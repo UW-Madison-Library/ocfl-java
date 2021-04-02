@@ -28,6 +28,7 @@ import edu.wisc.library.ocfl.api.DigestAlgorithmRegistry;
 import edu.wisc.library.ocfl.api.OcflConstants;
 import edu.wisc.library.ocfl.api.exception.NotFoundException;
 import edu.wisc.library.ocfl.api.exception.OcflIOException;
+import edu.wisc.library.ocfl.api.exception.OcflInputException;
 import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
 import edu.wisc.library.ocfl.api.model.OcflVersion;
 import edu.wisc.library.ocfl.api.model.ValidationCode;
@@ -42,6 +43,7 @@ import edu.wisc.library.ocfl.core.extension.storage.layout.HashedNTupleLayoutExt
 import edu.wisc.library.ocfl.core.util.FileUtil;
 import edu.wisc.library.ocfl.core.validation.model.SimpleInventory;
 import edu.wisc.library.ocfl.core.validation.model.SimpleVersion;
+import edu.wisc.library.ocfl.core.validation.storage.FileSystemStorage;
 import edu.wisc.library.ocfl.core.validation.storage.Storage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +51,7 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -66,7 +69,6 @@ import java.util.stream.Collectors;
 /**
  * Validates an object directory against the OCFL 1.0 spec
  */
-// TODO rename?
 public class Validator {
 
     private static final Logger LOG = LoggerFactory.getLogger(Validator.class);
@@ -96,6 +98,29 @@ public class Validator {
     private final SimpleInventoryParser inventoryParser;
     private final SimpleInventoryValidator inventoryValidator;
 
+    /**
+     * Validates that object at the specified location on disk
+     *
+     * @param objectRoot the path to the object root on disk
+     * @param checkContentFixity true if the content file digests should be validated
+     * @return the validation results
+     */
+    public static ValidationResults validateObject(Path objectRoot, boolean checkContentFixity) {
+        return new Validator(new FileSystemStorage(objectRoot.getParent()))
+                .validateObject(objectRoot.getFileName().toString(), checkContentFixity);
+    }
+
+    /**
+     * Validates that the specified inventory file is internally valid
+     *
+     * @param inventoryPath the path to the inventory file
+     * @return the validation results
+     */
+    public static ValidationResults validateInventory(Path inventoryPath) {
+        return new Validator(new FileSystemStorage(inventoryPath.getParent()))
+                .validateInventory(inventoryPath.getFileName().toString());
+    }
+
     public Validator(Storage storage) {
         this.storage = Enforce.notNull(storage, "storage cannot be null");
         this.inventoryParser = new SimpleInventoryParser();
@@ -110,6 +135,8 @@ public class Validator {
      * @return the validation results
      */
     public ValidationResults validateObject(String objectRootPath, boolean contentFixityCheck) {
+        Enforce.notBlank(objectRootPath, "objectRootPath cannot be blank");
+
         var results = new ValidationResultsBuilder();
 
         // TODO figure out how to handle links
@@ -129,6 +156,30 @@ public class Validator {
             results.addIssue(ValidationCode.E063,
                     "Object root inventory not found at %s", inventoryPath);
         }
+
+        return results.build();
+    }
+
+    /**
+     * Validates that an inventory is internally valid.
+     *
+     * @param inventoryPath the path to the inventory to validate
+     * @return the validation results
+     */
+    public ValidationResults validateInventory(String inventoryPath) {
+        Enforce.notBlank(inventoryPath, "inventoryPath cannot be blank");
+
+        if (!storage.fileExists(inventoryPath)) {
+            throw new OcflInputException("No inventory found at: " + inventoryPath);
+        }
+
+        var results = new ValidationResultsBuilder();
+        var parseResults = parseInventory(inventoryPath, results, POSSIBLE_INV_ALGORITHMS);
+
+        parseResults.inventory.ifPresent(inventory -> {
+            var validationResults = inventoryValidator.validateInventory(inventory, inventoryPath);
+            results.addAll(validationResults);
+        });
 
         return results.build();
     }
@@ -224,7 +275,7 @@ public class Validator {
                         manifests.addManifest(inventory);
                     }
 
-                    validateVersionMeta(versionStr, rootInventory, inventory, inventoryPath, results);
+                    validateVersionIsConsistent(versionStr, rootInventory, inventory, inventoryPath, results);
                     validateContentFiles(inventoryPath, inventory, contentFiles, manifests, results);
                 }
             });
@@ -272,11 +323,11 @@ public class Validator {
         validateVersionDirContents(objectRootPath, versionStr, versionPath, contentDir, ignoreFiles, results);
     }
 
-    private void validateVersionMeta(String versionStr,
-                                     SimpleInventory rootInventory,
-                                     SimpleInventory inventory,
-                                     String inventoryPath,
-                                     ValidationResultsBuilder results) {
+    private void validateVersionIsConsistent(String versionStr,
+                                             SimpleInventory rootInventory,
+                                             SimpleInventory inventory,
+                                             String inventoryPath,
+                                             ValidationResultsBuilder results) {
         var currentVersionNum = VersionNum.fromString(versionStr);
         var rootManifest = rootInventory.getManifest();
         var childManifest = inventory.getManifest();
@@ -416,10 +467,10 @@ public class Validator {
             var listings = storage.listDirectory(versionContentPath, true);
 
             listings.forEach(listing -> {
-                var fullPath = FileUtil.pathJoinFailEmpty(versionContentPath, listing.getRelativePath());
-                var contentPath = FileUtil.pathJoinFailEmpty(versionContentDir, listing.getRelativePath());
+                var fullPath = FileUtil.pathJoinIgnoreEmpty(versionContentPath, listing.getRelativePath());
+                var contentPath = FileUtil.pathJoinIgnoreEmpty(versionContentDir, listing.getRelativePath());
 
-                if (listing.isDirectory()) {
+                if (listing.isDirectory() && !versionContentPath.equals(contentPath)) {
                     results.addIssue(ValidationCode.E024,
                             "Object contains an empty directory within version content at %s",
                             fullPath);

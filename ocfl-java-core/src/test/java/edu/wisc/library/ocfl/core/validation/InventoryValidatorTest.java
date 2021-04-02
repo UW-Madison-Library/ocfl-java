@@ -6,14 +6,12 @@ import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
 import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.core.model.Inventory;
 import edu.wisc.library.ocfl.core.model.InventoryBuilder;
-import edu.wisc.library.ocfl.core.model.PathBiMap;
 import edu.wisc.library.ocfl.core.model.User;
 import edu.wisc.library.ocfl.core.model.Version;
 import edu.wisc.library.ocfl.test.OcflAsserts;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
-import java.util.HashMap;
 
 public class InventoryValidatorTest {
 
@@ -46,21 +44,6 @@ public class InventoryValidatorTest {
             InventoryValidator.validateShallow(defaultBuilder()
                     .head(new VersionNum(1))
                     .contentDirectory("")
-                    .build());
-        });
-    }
-
-    @Test
-    public void failWhenFixityReferencesContentPathNotInManifest() {
-        var fixityMap = new HashMap<DigestAlgorithm, PathBiMap>();
-        var fixity = new PathBiMap();
-        fixity.put("md5_123", "contentPath");
-        fixityMap.put(DigestAlgorithm.md5, fixity);
-
-        OcflAsserts.assertThrowsWithMessage(InvalidInventoryException.class, "Fixity entry md5 => {md5_123 => contentPath} does not have a corresponding entry in the manifest block.", () -> {
-            InventoryValidator.validateDeep(defaultBuilder()
-                    .head(new VersionNum(1))
-                    .fixityBiMap(fixityMap)
                     .build());
         });
     }

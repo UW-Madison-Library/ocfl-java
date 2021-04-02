@@ -30,10 +30,13 @@ import edu.wisc.library.ocfl.api.OcflObjectUpdater;
 import edu.wisc.library.ocfl.api.OcflOption;
 import edu.wisc.library.ocfl.api.OcflRepository;
 import edu.wisc.library.ocfl.api.exception.AlreadyExistsException;
+import edu.wisc.library.ocfl.api.exception.FixityCheckException;
 import edu.wisc.library.ocfl.api.exception.NotFoundException;
 import edu.wisc.library.ocfl.api.exception.ObjectOutOfSyncException;
 import edu.wisc.library.ocfl.api.exception.OcflIOException;
+import edu.wisc.library.ocfl.api.exception.OcflInputException;
 import edu.wisc.library.ocfl.api.exception.OcflStateException;
+import edu.wisc.library.ocfl.api.exception.ValidationException;
 import edu.wisc.library.ocfl.api.model.FileChangeHistory;
 import edu.wisc.library.ocfl.api.model.ObjectDetails;
 import edu.wisc.library.ocfl.api.model.ObjectVersionId;
@@ -49,16 +52,16 @@ import edu.wisc.library.ocfl.core.inventory.InventoryUpdater;
 import edu.wisc.library.ocfl.core.inventory.SidecarMapper;
 import edu.wisc.library.ocfl.core.lock.ObjectLock;
 import edu.wisc.library.ocfl.core.model.Inventory;
-import edu.wisc.library.ocfl.core.model.RevisionNum;
 import edu.wisc.library.ocfl.core.path.ContentPathMapper;
 import edu.wisc.library.ocfl.core.path.constraint.ContentPathConstraintProcessor;
 import edu.wisc.library.ocfl.core.path.mapper.LogicalPathMapper;
 import edu.wisc.library.ocfl.core.storage.OcflStorage;
+import edu.wisc.library.ocfl.core.util.DigestUtil;
 import edu.wisc.library.ocfl.core.util.FileUtil;
 import edu.wisc.library.ocfl.core.util.ResponseMapper;
 import edu.wisc.library.ocfl.core.util.UncheckedFiles;
 import edu.wisc.library.ocfl.core.validation.InventoryValidator;
-import edu.wisc.library.ocfl.core.validation.ObjectValidator;
+import edu.wisc.library.ocfl.core.validation.Validator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,6 +73,7 @@ import java.nio.file.Path;
 import java.security.DigestOutputStream;
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -88,7 +92,6 @@ public class DefaultOcflRepository implements OcflRepository {
     protected final InventoryMapper inventoryMapper;
     protected final Path workDir;
     protected final ObjectLock objectLock;
-    protected final ObjectValidator objectValidator;
     protected final ResponseMapper responseMapper;
     protected final InventoryUpdater.Builder inventoryUpdaterBuilder;
     protected final AddFileProcessor.Builder addFileProcessorBuilder;
@@ -127,7 +130,6 @@ public class DefaultOcflRepository implements OcflRepository {
                         .logicalPathMapper(logicalPathMapper)
                         .contentPathConstraintProcessor(contentPathConstraintProcessor));
 
-        objectValidator = new ObjectValidator(inventoryMapper);
         responseMapper = new ResponseMapper();
         clock = Clock.systemUTC();
 
@@ -417,10 +419,6 @@ public class DefaultOcflRepository implements OcflRepository {
         LOG.debug("Export <{}> to <{}>", objectVersionId, outputPath);
 
         storage.exportVersion(exportId, outputPath);
-
-        if (!OcflOption.contains(OcflOption.NO_VALIDATION, options)) {
-            objectValidator.validateVersion(outputPath, parseInventoryForImport(outputPath, false));
-        }
     }
 
     /**
@@ -433,14 +431,18 @@ public class DefaultOcflRepository implements OcflRepository {
         Enforce.notBlank(objectId, "objectId cannot be blank");
         ensureExportPath(outputPath);
 
-        var inventory = requireInventory(ObjectVersionId.head(objectId));
+        requireInventory(ObjectVersionId.head(objectId));
 
         LOG.debug("Export <{}> to <{}>", objectId, outputPath);
 
         objectLock.doInWriteLock(objectId, () -> storage.exportObject(objectId, outputPath));
 
         if (!OcflOption.contains(OcflOption.NO_VALIDATION, options)) {
-            objectValidator.validateObject(outputPath, inventory);
+            var results = Validator.validateObject(outputPath, true);
+            if (results.hasErrors()) {
+                throw new ValidationException(String.format(
+                        "Object %s failed validation after export to %s", objectId, outputPath), results);
+            }
         }
     }
 
@@ -453,12 +455,11 @@ public class DefaultOcflRepository implements OcflRepository {
 
         Enforce.notNull(versionPath, "versionPath cannot be null");
 
+        validateVersionImportInventory(versionPath);
+
         var importInventory = createImportVersionInventory(versionPath);
 
-        InventoryValidator.validateShallow(importInventory);
-        if (!OcflOption.contains(OcflOption.NO_VALIDATION, options)) {
-            objectValidator.validateVersion(versionPath, importInventory);
-        }
+        ensureVersionHasAllFiles(importInventory, versionPath, !OcflOption.contains(OcflOption.NO_VALIDATION, options));
 
         var stagingDir = createStagingDir(importInventory.getId());
 
@@ -479,7 +480,9 @@ public class DefaultOcflRepository implements OcflRepository {
 
         Enforce.notNull(objectPath, "objectPath cannot be null");
 
-        var inventory = parseInventoryForImport(objectPath, true);
+        ensureNoMutableHeadForImport(objectPath);
+
+        var inventory = parseInventoryForImport(objectPath);
         var objectId = inventory.getId();
 
         if (containsObject(objectId)) {
@@ -487,10 +490,11 @@ public class DefaultOcflRepository implements OcflRepository {
                     objectPath, objectId));
         }
 
-        if (OcflOption.contains(OcflOption.NO_VALIDATION, options)) {
-            InventoryValidator.validateDeep(inventory);
-        } else {
-            objectValidator.validateObject(objectPath, inventory);
+        var results = Validator.validateObject(objectPath,
+                !OcflOption.contains(OcflOption.NO_VALIDATION, options));
+        if (results.hasErrors()) {
+            throw new ValidationException(String.format(
+                    "Object %s at %s failed validation.", objectId, objectPath), results);
         }
 
         var stagingDir = createStagingDir(objectId);
@@ -603,8 +607,16 @@ public class DefaultOcflRepository implements OcflRepository {
         }
     }
 
+    private void validateVersionImportInventory(Path versionPath) {
+        var inventoryPath = ObjectPaths.inventoryPath(versionPath);
+        var results = Validator.validateInventory(inventoryPath);
+        if (results.hasErrors()) {
+            throw new ValidationException(String.format("Version inventory at %s failed validation", versionPath), results);
+        }
+    }
+
     private Inventory createImportVersionInventory(Path versionPath) {
-        var importInventory = parseInventoryForImport(versionPath, false);
+        var importInventory = parseInventoryForImport(versionPath);
         var objectId = importInventory.getId();
 
         var existingInventory = loadInventory(ObjectVersionId.head(objectId));
@@ -636,34 +648,14 @@ public class DefaultOcflRepository implements OcflRepository {
                 .build();
     }
 
-    private Inventory parseInventoryForImport(Path path, boolean lookForMutableHead) {
-        Path inventoryPath = null;
-        Path sidecarPath = null;
-        boolean hasMutableHead = false;
-
-        if (lookForMutableHead) {
-            var mutableInventory = ObjectPaths.mutableHeadInventoryPath(path);
-            if (Files.exists(mutableInventory)) {
-                inventoryPath = mutableInventory;
-                sidecarPath = ObjectPaths.findInventorySidecarPath(path);
-                hasMutableHead = true;
-            }
-        }
-
-        if (!hasMutableHead) {
-            inventoryPath = ObjectPaths.inventoryPath(path);
-            sidecarPath = ObjectPaths.findInventorySidecarPath(path);
-        }
+    private Inventory parseInventoryForImport(Path path) {
+        var inventoryPath = ObjectPaths.inventoryPath(path);
+        var sidecarPath = ObjectPaths.findInventorySidecarPath(path);
 
         Enforce.expressionTrue(Files.exists(inventoryPath), inventoryPath, "inventory.json must exist");
         Enforce.expressionTrue(Files.exists(sidecarPath), sidecarPath, "inventory sidecar must exist");
 
-        if (hasMutableHead) {
-            // TODO this is not technically the correct revision, but it should not cause a problem for now
-            return inventoryMapper.readMutableHead(path.toString(), SidecarMapper.readDigest(sidecarPath), RevisionNum.R1, inventoryPath);
-        } else {
-            return inventoryMapper.read(path.toString(), SidecarMapper.readDigest(sidecarPath), inventoryPath);
-        }
+        return inventoryMapper.read(path.toString(), SidecarMapper.readDigest(sidecarPath), inventoryPath);
     }
 
     private void importToStaging(Path source, Path stagingDir, OcflOption... options) {
@@ -689,8 +681,16 @@ public class DefaultOcflRepository implements OcflRepository {
 
     private void ensureNoMutableHead(Inventory inventory) {
         if (inventory != null && inventory.hasMutableHead()) {
-            throw new OcflStateException(String.format("Cannot create a new version of object %s because it has an active mutable HEAD.",
-                    inventory.getId()));
+            throw new OcflStateException(String.format(
+                    "Cannot create a new version of object %s because it has an active mutable HEAD.", inventory.getId()));
+        }
+    }
+
+    private void ensureNoMutableHeadForImport(Path path) {
+        var mutableInventory = ObjectPaths.mutableHeadInventoryPath(path);
+        if (Files.exists(mutableInventory)) {
+            throw new OcflInputException(String.format(
+                    "The object at %s cannot be imported because it contains a mutable HEAD with uncommitted changes", path));
         }
     }
 
@@ -705,6 +705,44 @@ public class DefaultOcflRepository implements OcflRepository {
         }
 
         return objectId.getVersionNum();
+    }
+
+    private void ensureVersionHasAllFiles(Inventory inventory, Path versionPath, boolean fixityCheck) {
+        var contentDir = inventory.resolveContentDirectory();
+        var versionContentPath = versionPath.resolve(contentDir);
+        var prefix = inventory.getHead() + "/" + contentDir + "/";
+
+        var contentFiles = FileUtil.findFiles(versionContentPath);
+
+        var expectedFiles = new HashMap<String, String>(contentFiles.size());
+
+        inventory.getManifest().forEach((digest, paths) -> {
+            paths.forEach(path -> {
+                if (path.startsWith(prefix)) {
+                    expectedFiles.put(path.substring(prefix.length()), digest);
+                }
+            });
+        });
+
+        contentFiles.forEach(path -> {
+            var relativePath = FileUtil.pathToStringStandardSeparator(versionContentPath.relativize(path));
+            var digest = expectedFiles.remove(relativePath);
+            if (digest == null) {
+                throw new OcflStateException("The version contains a content file that is not declared in its manifest: " + path);
+            } else if (fixityCheck) {
+                var actualDigest = DigestUtil.computeDigestHex(inventory.getDigestAlgorithm(), path);
+                if (!digest.equalsIgnoreCase(actualDigest)) {
+                    throw new FixityCheckException(String.format(
+                            "Expected file %s to have %s digest %s, but it was %s",
+                            path, inventory.getDigestAlgorithm().getOcflName(), digest, actualDigest));
+                }
+            }
+        });
+
+        expectedFiles.keySet().forEach(contentFile -> {
+            throw new OcflStateException(String.format("The version at %s was expected to contain %s/%s, but it did not",
+                    versionPath, contentDir, contentFile));
+        });
     }
 
     protected Path createStagingDir(String objectId) {

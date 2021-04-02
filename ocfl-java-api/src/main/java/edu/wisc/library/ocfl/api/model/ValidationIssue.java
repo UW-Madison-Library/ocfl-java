@@ -55,9 +55,6 @@ public class ValidationIssue {
 
     @Override
     public String toString() {
-        return "ValidationIssue{" +
-                "code=" + code +
-                ", message='" + message + '\'' +
-                '}';
+        return String.format("[%s] %s", code, message);
     }
 }

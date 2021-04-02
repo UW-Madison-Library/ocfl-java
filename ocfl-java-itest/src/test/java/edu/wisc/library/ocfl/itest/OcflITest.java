@@ -14,6 +14,7 @@ import edu.wisc.library.ocfl.api.exception.OcflInputException;
 import edu.wisc.library.ocfl.api.exception.OcflStateException;
 import edu.wisc.library.ocfl.api.exception.PathConstraintException;
 import edu.wisc.library.ocfl.api.exception.RepositoryConfigurationException;
+import edu.wisc.library.ocfl.api.exception.ValidationException;
 import edu.wisc.library.ocfl.api.io.FixityCheckInputStream;
 import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
 import edu.wisc.library.ocfl.api.model.FileChangeType;
@@ -1761,7 +1762,7 @@ public abstract class OcflITest {
 
         Files.delete(output.resolve("v1/content/file1"));
 
-        OcflAsserts.assertThrowsWithMessage(CorruptObjectException.class, "file1", () -> {
+        OcflAsserts.assertThrowsWithMessage(ValidationException.class, "file1", () -> {
             repo2.importObject(output, OcflOption.MOVE_SOURCE);
         });
     }
@@ -1967,7 +1968,7 @@ public abstract class OcflITest {
 
         Files.delete(output.resolve("content/file3.txt"));
 
-        OcflAsserts.assertThrowsWithMessage(CorruptObjectException.class, "file3.txt", () -> {
+        OcflAsserts.assertThrowsWithMessage(OcflStateException.class, "file3.txt", () -> {
             repo2.importVersion(output);
         });
     }

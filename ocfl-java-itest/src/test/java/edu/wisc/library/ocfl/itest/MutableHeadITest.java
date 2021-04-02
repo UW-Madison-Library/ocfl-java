@@ -4,6 +4,7 @@ import edu.wisc.library.ocfl.api.MutableOcflRepository;
 import edu.wisc.library.ocfl.api.exception.CorruptObjectException;
 import edu.wisc.library.ocfl.api.exception.NotFoundException;
 import edu.wisc.library.ocfl.api.exception.ObjectOutOfSyncException;
+import edu.wisc.library.ocfl.api.exception.OcflInputException;
 import edu.wisc.library.ocfl.api.exception.OcflStateException;
 import edu.wisc.library.ocfl.api.model.ObjectVersionId;
 import edu.wisc.library.ocfl.api.model.VersionInfo;
@@ -386,7 +387,7 @@ public abstract class MutableHeadITest {
     }
 
     @Test
-    public void importObjectWhenWithMutableHead() {
+    public void rejectImportObjectWhenWithMutableHead() {
         var objectId = "o1";
         var repoName1 = "mutable5";
         var repoRoot1 = expectedRepoPath(repoName1);
@@ -399,10 +400,9 @@ public abstract class MutableHeadITest {
         var repoName2 = "mutable-import";
         var repo2 = defaultRepo(repoName2);
 
-        repo2.importObject(output);
-
-        assertTrue(repo2.containsObject(objectId));
-        assertEquals(repo1.describeObject(objectId), repo2.describeObject(objectId));
+        OcflAsserts.assertThrowsWithMessage(OcflInputException.class, "cannot be imported because it contains a mutable HEAD", () -> {
+            repo2.importObject(output);
+        });
     }
 
     @Test
@@ -421,7 +421,7 @@ public abstract class MutableHeadITest {
         var repoName2 = "mutable-import";
         var repo2 = defaultRepo(repoName2);
 
-        OcflAsserts.assertThrowsWithMessage(CorruptObjectException.class, "mutable-head/head/content/r1/dir1/file3", () -> {
+        OcflAsserts.assertThrowsWithMessage(OcflInputException.class, "cannot be imported because it contains a mutable HEAD", () -> {
             repo2.importObject(output);
         });
     }

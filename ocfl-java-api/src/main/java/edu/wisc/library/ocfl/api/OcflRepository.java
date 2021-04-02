@@ -29,6 +29,7 @@ import edu.wisc.library.ocfl.api.exception.CorruptObjectException;
 import edu.wisc.library.ocfl.api.exception.NotFoundException;
 import edu.wisc.library.ocfl.api.exception.ObjectOutOfSyncException;
 import edu.wisc.library.ocfl.api.exception.OcflStateException;
+import edu.wisc.library.ocfl.api.exception.ValidationException;
 import edu.wisc.library.ocfl.api.model.FileChangeHistory;
 import edu.wisc.library.ocfl.api.model.ObjectDetails;
 import edu.wisc.library.ocfl.api.model.ObjectVersionId;
@@ -204,9 +205,8 @@ public interface OcflRepository {
      *
      * @param objectVersionId the id of the object and version to export
      * @param outputPath the directory to write the exported version to, if it does not exist it will be created
-     * @param options optional config options. Use {@link OcflOption#NO_VALIDATION} to disable export validation.
+     * @param options optional config options.
      * @throws NotFoundException when no object can be found for the specified objectVersionId
-     * @throws CorruptObjectException when the exported version fails validation
      */
     void exportVersion(ObjectVersionId objectVersionId, Path outputPath, OcflOption... options);
 
@@ -222,7 +222,7 @@ public interface OcflRepository {
      * @param outputPath the directory to write the exported object to, if it does not exist it will be created
      * @param options optional config options. Use {@link OcflOption#NO_VALIDATION} to disable export validation.
      * @throws NotFoundException when no object can be found for the specified objectId
-     * @throws CorruptObjectException when the exported object fails validation
+     * @throws ValidationException when the exported object fails validation
      */
     void exportObject(String objectId, Path outputPath, OcflOption... options);
 
