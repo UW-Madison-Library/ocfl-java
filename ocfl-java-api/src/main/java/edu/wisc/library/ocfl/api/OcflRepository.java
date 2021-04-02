@@ -170,9 +170,11 @@ public interface OcflRepository {
      * Validates an existing object against the OCFL 1.0 spec and returns a report containing all of the issues that
      * were found with their accompanying <a href="https://ocfl.io/validation/validation-codes.html">validation code</a>.
      *
+     * <p>The validation does NOT lock the object, which means that if an object is updated while the object is in
+     * the process of being validated, then the results may be inaccurate.
+     *
      * <p>If a fixity check is requested, then this call may be quite expensive as it will have to calculate the digests
-     * of every file in the object. This may be important because the object may not be updated for the duration
-     * of the validation.
+     * of every file in the object.
      *
      * @param objectId the id of the object to validate
      * @param contentFixityCheck true if the fixity of the content files should be verified

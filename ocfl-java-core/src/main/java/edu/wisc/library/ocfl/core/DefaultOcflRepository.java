@@ -345,7 +345,7 @@ public class DefaultOcflRepository implements OcflRepository {
 
         LOG.info("Validating object <{}>", objectId);
 
-        return objectLock.doInWriteLock(objectId, () -> storage.validateObject(objectId, contentFixityCheck));
+        return storage.validateObject(objectId, contentFixityCheck);
     }
 
     /**
