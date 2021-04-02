@@ -4,6 +4,7 @@ import com.adobe.testing.s3mock.junit5.S3MockExtension;
 import com.mchange.v2.c3p0.ComboPooledDataSource;
 import edu.wisc.library.ocfl.api.OcflRepository;
 import edu.wisc.library.ocfl.api.model.ObjectVersionId;
+import edu.wisc.library.ocfl.api.model.VersionInfo;
 import edu.wisc.library.ocfl.aws.OcflS3Client;
 import edu.wisc.library.ocfl.core.OcflRepositoryBuilder;
 import edu.wisc.library.ocfl.core.cache.NoOpCache;
@@ -37,9 +38,11 @@ import java.util.stream.Collectors;
 
 import static edu.wisc.library.ocfl.itest.ITestHelper.expectedRepoPath;
 import static edu.wisc.library.ocfl.itest.ITestHelper.sourceRepoPath;
+import static edu.wisc.library.ocfl.itest.ITestHelper.streamString;
 import static edu.wisc.library.ocfl.test.TestHelper.inputStream;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class S3OcflITest extends OcflITest {
 
@@ -140,6 +143,36 @@ public class S3OcflITest extends OcflITest {
         try (var list = repo.listObjectIds()) {
             assertThat(list.collect(Collectors.toList()), containsInAnyOrder("o1", "o2", "o3"));
         }
+    }
+
+    // Doesn't work with mock https://github.com/adobe/S3Mock/issues/215
+    @Test
+    @EnabledIfEnvironmentVariable(named = ENV_ACCESS_KEY, matches = ".+")
+    @EnabledIfEnvironmentVariable(named = ENV_SECRET_KEY, matches = ".+")
+    @EnabledIfEnvironmentVariable(named = ENV_BUCKET, matches = ".+")
+    public void shouldReturnNoValidationErrorsWhenObjectIsValid() {
+        var repoName = "valid-repo";
+        var repo = defaultRepo(repoName);
+
+        var objectId = "uri:valid-object";
+        var versionInfo = new VersionInfo()
+                .setUser("Peter", "mailto:peter@example.com")
+                .setMessage("message");
+
+        repo.updateObject(ObjectVersionId.head(objectId), versionInfo, updater -> {
+            updater.writeFile(streamString("file1"), "file1");
+            updater.writeFile(streamString("file2"), "file2");
+        });
+
+        repo.updateObject(ObjectVersionId.head(objectId), versionInfo, updater -> {
+            updater.writeFile(streamString("file3"), "file3")
+                    .removeFile("file2");
+        });
+
+        var results = repo.validateObject(objectId, true);
+
+        assertEquals(0, results.getErrors().size(), () -> results.getErrors().toString());
+        assertEquals(0, results.getWarnings().size(), () -> results.getWarnings().toString());
     }
 
     // This test doesn't work with S3Mock because it double encodes

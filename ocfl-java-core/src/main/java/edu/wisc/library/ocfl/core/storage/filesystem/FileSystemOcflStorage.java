@@ -34,6 +34,7 @@ import edu.wisc.library.ocfl.api.exception.OcflIOException;
 import edu.wisc.library.ocfl.api.exception.OcflStateException;
 import edu.wisc.library.ocfl.api.io.FixityCheckInputStream;
 import edu.wisc.library.ocfl.api.model.ObjectVersionId;
+import edu.wisc.library.ocfl.api.model.ValidationResults;
 import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.ObjectPaths;
@@ -49,6 +50,8 @@ import edu.wisc.library.ocfl.core.util.DigestUtil;
 import edu.wisc.library.ocfl.core.util.FileUtil;
 import edu.wisc.library.ocfl.core.util.NamasteTypeFile;
 import edu.wisc.library.ocfl.core.util.UncheckedFiles;
+import edu.wisc.library.ocfl.core.validation.Validator;
+import edu.wisc.library.ocfl.core.validation.storage.FileSystemStorage;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.slf4j.Logger;
@@ -81,6 +84,7 @@ public class FileSystemOcflStorage extends AbstractOcflStorage {
 
     private final Path repositoryRoot;
     private final FileSystemOcflStorageInitializer initializer;
+    private final Validator validator;
 
     private final boolean checkNewVersionFixity;
 
@@ -124,9 +128,9 @@ public class FileSystemOcflStorage extends AbstractOcflStorage {
         this.logicalPathConstraints = LogicalPathConstraints.constraintsWithBackslashCheck();
         this.ioRetry = new RetryPolicy<Void>()
                 .handle(UncheckedIOException.class, IOException.class)
-                .withBackoff(50, 200, ChronoUnit.MILLIS, 1.5)
-                .withJitter(Duration.ofMillis(10))
+                .withBackoff(5, 200, ChronoUnit.MILLIS, 1.5)
                 .withMaxRetries(5);
+        this.validator = new Validator(new FileSystemStorage(repositoryRoot));
     }
 
     /**
@@ -554,6 +558,25 @@ public class FileSystemOcflStorage extends AbstractOcflStorage {
             }
             throw e;
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ValidationResults validateObject(String objectId, boolean contentFixityCheck) {
+        ensureOpen();
+
+        var objectRoot = objectRootPath(objectId);
+        var objectRootPath = repositoryRoot.resolve(objectRoot);
+
+        if (Files.notExists(objectRootPath)) {
+            throw new NotFoundException(String.format("Object %s was not found.", objectId));
+        }
+
+        LOG.debug("Validating object <{}> at <{}>", objectId, objectRoot);
+
+        return validator.validateObject(objectRoot, contentFixityCheck);
     }
 
     /**

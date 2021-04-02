@@ -34,6 +34,7 @@ import edu.wisc.library.ocfl.api.model.FileChangeHistory;
 import edu.wisc.library.ocfl.api.model.ObjectDetails;
 import edu.wisc.library.ocfl.api.model.ObjectVersionId;
 import edu.wisc.library.ocfl.api.model.OcflObjectVersion;
+import edu.wisc.library.ocfl.api.model.ValidationResults;
 import edu.wisc.library.ocfl.api.model.VersionDetails;
 import edu.wisc.library.ocfl.api.model.VersionInfo;
 
@@ -164,6 +165,21 @@ public interface OcflRepository {
      * @param objectId the id of the object to purge
      */
     void purgeObject(String objectId);
+
+    /**
+     * Validates an existing object against the OCFL 1.0 spec and returns a report containing all of the issues that
+     * were found with their accompanying <a href="https://ocfl.io/validation/validation-codes.html">validation code</a>.
+     *
+     * <p>If a fixity check is requested, then this call may be quite expensive as it will have to calculate the digests
+     * of every file in the object. This may be important because the object may not be updated for the duration
+     * of the validation.
+     *
+     * @param objectId the id of the object to validate
+     * @param contentFixityCheck true if the fixity of the content files should be verified
+     * @return the validation results
+     * @throws NotFoundException if the object does not exist.
+     */
+    ValidationResults validateObject(String objectId, boolean contentFixityCheck);
 
     /**
      * Creates a new head version by copying the state of the specified version. This is a non-destructive way to roll an

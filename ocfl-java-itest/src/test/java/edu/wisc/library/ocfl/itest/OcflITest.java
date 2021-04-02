@@ -2118,6 +2118,19 @@ public abstract class OcflITest {
         assertFalse(cache.contains(objectId2));
     }
 
+    @Test
+    public void shouldReturnValidationErrorsWhenObjectIsInvalid() {
+        var repoName = "repo-with-invalid-object";
+        var repoRoot = sourceRepoPath(repoName);
+
+        var repo = existingRepo(repoName, repoRoot);
+
+        var results = repo.validateObject("E003_no_decl", true);
+
+        assertEquals(4, results.getErrors().size(), () -> results.getErrors().toString());
+        assertEquals(3, results.getWarnings().size(), () -> results.getWarnings().toString());
+    }
+
     private void verifyStream(Path expectedFile, OcflObjectVersionFile actual) throws IOException {
         var stream = actual.getStream();
         var contents = TestHelper.inputToString(stream);

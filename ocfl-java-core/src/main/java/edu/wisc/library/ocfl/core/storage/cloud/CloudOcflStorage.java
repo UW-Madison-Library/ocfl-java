@@ -35,6 +35,7 @@ import edu.wisc.library.ocfl.api.exception.OcflStateException;
 import edu.wisc.library.ocfl.api.io.FixityCheckInputStream;
 import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
 import edu.wisc.library.ocfl.api.model.ObjectVersionId;
+import edu.wisc.library.ocfl.api.model.ValidationResults;
 import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.ObjectPaths;
@@ -50,6 +51,8 @@ import edu.wisc.library.ocfl.core.storage.OcflStorage;
 import edu.wisc.library.ocfl.core.util.FileUtil;
 import edu.wisc.library.ocfl.core.util.NamasteTypeFile;
 import edu.wisc.library.ocfl.core.util.UncheckedFiles;
+import edu.wisc.library.ocfl.core.validation.Validator;
+import edu.wisc.library.ocfl.core.validation.storage.CloudStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,6 +90,7 @@ public class CloudOcflStorage extends AbstractOcflStorage {
     private final CloudOcflStorageInitializer initializer;
     private OcflStorageLayoutExtension storageLayoutExtension;
     private final CloudOcflFileRetriever.Builder fileRetrieverBuilder;
+    private final Validator validator;
 
     /**
      * Create a new builder.
@@ -114,6 +118,7 @@ public class CloudOcflStorage extends AbstractOcflStorage {
 
         this.logicalPathConstraints = LogicalPathConstraints.constraintsWithBackslashCheck();
         this.fileRetrieverBuilder = CloudOcflFileRetriever.builder().cloudClient(this.cloudClient);
+        this.validator = new Validator(new CloudStorage(cloudClient));
     }
 
     /**
@@ -469,6 +474,24 @@ public class CloudOcflStorage extends AbstractOcflStorage {
         LOG.debug("Importing <{}> to <{}>", objectId, objectRootPath);
 
         storeFilesInCloud(objectPath, objectRootPath);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ValidationResults validateObject(String objectId, boolean contentFixityCheck) {
+        ensureOpen();
+
+        if (!containsObject(objectId)) {
+            throw new NotFoundException(String.format("Object %s was not found.", objectId));
+        }
+
+        var objectRoot = objectRootPath(objectId);
+
+        LOG.debug("Validating object <{}> at <{}>", objectId, objectRoot);
+
+        return validator.validateObject(objectRoot, contentFixityCheck);
     }
 
     /**

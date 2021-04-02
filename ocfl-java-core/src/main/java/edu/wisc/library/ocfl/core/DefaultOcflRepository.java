@@ -42,6 +42,7 @@ import edu.wisc.library.ocfl.api.model.ObjectDetails;
 import edu.wisc.library.ocfl.api.model.ObjectVersionId;
 import edu.wisc.library.ocfl.api.model.OcflObjectVersion;
 import edu.wisc.library.ocfl.api.model.OcflObjectVersionFile;
+import edu.wisc.library.ocfl.api.model.ValidationResults;
 import edu.wisc.library.ocfl.api.model.VersionDetails;
 import edu.wisc.library.ocfl.api.model.VersionInfo;
 import edu.wisc.library.ocfl.api.model.VersionNum;
@@ -113,7 +114,8 @@ public class DefaultOcflRepository implements OcflRepository {
      * @param contentPathConstraintProcessor content path constraint processor
      * @param config ocfl defaults configuration
      */
-    public DefaultOcflRepository(OcflStorage storage, Path workDir,
+    public DefaultOcflRepository(OcflStorage storage,
+                                 Path workDir,
                                  ObjectLock objectLock,
                                  InventoryMapper inventoryMapper,
                                  LogicalPathMapper logicalPathMapper,
@@ -330,6 +332,20 @@ public class DefaultOcflRepository implements OcflRepository {
         LOG.info("Purge object <{}>", objectId);
 
         objectLock.doInWriteLock(objectId, () -> storage.purgeObject(objectId));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ValidationResults validateObject(String objectId, boolean contentFixityCheck) {
+        ensureOpen();
+
+        Enforce.notBlank(objectId, "objectId cannot be blank");
+
+        LOG.info("Validating object <{}>", objectId);
+
+        return objectLock.doInWriteLock(objectId, () -> storage.validateObject(objectId, contentFixityCheck));
     }
 
     /**

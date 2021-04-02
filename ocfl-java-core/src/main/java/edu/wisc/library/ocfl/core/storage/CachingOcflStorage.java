@@ -27,6 +27,7 @@ package edu.wisc.library.ocfl.core.storage;
 import edu.wisc.library.ocfl.api.OcflFileRetriever;
 import edu.wisc.library.ocfl.api.exception.ObjectOutOfSyncException;
 import edu.wisc.library.ocfl.api.model.ObjectVersionId;
+import edu.wisc.library.ocfl.api.model.ValidationResults;
 import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.cache.Cache;
@@ -238,6 +239,16 @@ public class CachingOcflStorage extends AbstractOcflStorage {
         ensureOpen();
 
         delegate.importObject(objectId, objectPath);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ValidationResults validateObject(String objectId, boolean contentFixityCheck) {
+        ensureOpen();
+
+        return delegate.validateObject(objectId, contentFixityCheck);
     }
 
     /**

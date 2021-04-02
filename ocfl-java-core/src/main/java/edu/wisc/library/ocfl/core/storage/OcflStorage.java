@@ -30,6 +30,7 @@ import edu.wisc.library.ocfl.api.exception.NotFoundException;
 import edu.wisc.library.ocfl.api.exception.ObjectOutOfSyncException;
 import edu.wisc.library.ocfl.api.model.ObjectVersionId;
 import edu.wisc.library.ocfl.api.model.OcflVersion;
+import edu.wisc.library.ocfl.api.model.ValidationResults;
 import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.core.extension.ExtensionSupportEvaluator;
 import edu.wisc.library.ocfl.core.extension.OcflExtensionConfig;
@@ -234,6 +235,16 @@ public interface OcflStorage {
      * of closing the resources.
      */
     void close();
+
+    /**
+     * Validates the specified object against the OCFL 1.0 spec.
+     *
+     * @param objectId the id of the object to validate
+     * @param contentFixityCheck true if the fixity of the content files should be verified
+     * @return the validation results
+     * @throws NotFoundException if the object does not exist.
+     */
+    ValidationResults validateObject(String objectId, boolean contentFixityCheck);
 
     /**
      * If the OcflStorage is using an inventory cache, then this method invalidates the cache entry for the
