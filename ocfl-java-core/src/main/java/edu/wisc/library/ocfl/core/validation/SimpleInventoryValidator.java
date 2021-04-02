@@ -26,6 +26,9 @@ package edu.wisc.library.ocfl.core.validation;
 
 import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
 import edu.wisc.library.ocfl.api.model.InventoryType;
+import edu.wisc.library.ocfl.api.model.ValidationCode;
+import edu.wisc.library.ocfl.api.model.ValidationIssue;
+import edu.wisc.library.ocfl.api.model.ValidationResults;
 import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.validation.model.SimpleInventory;
@@ -125,7 +128,7 @@ public class SimpleInventoryValidator {
         Enforce.notNull(inventory, "inventory cannot be null");
         Enforce.notNull(inventoryPath, "inventoryPath cannot be null");
 
-        var results = new ValidationResults();
+        var results = new ValidationResultsBuilder();
 
         results.addIssue(notBlank(inventory.getId(), ValidationCode.E036, "Inventory id must be set in %s", inventoryPath))
                 .addIssue(ifNotNull(inventory.getId(), () -> isTrue(isUri(inventory.getId()),
@@ -168,10 +171,10 @@ public class SimpleInventoryValidator {
         validateInventoryVersions(inventory, inventoryPath, results);
         validateInventoryFixity(inventory, inventoryPath, results);
 
-        return results;
+        return results.build();
     }
 
-    private void validateInventoryManifest(SimpleInventory inventory, String inventoryPath, ValidationResults results) {
+    private void validateInventoryManifest(SimpleInventory inventory, String inventoryPath, ValidationResultsBuilder results) {
         if (inventory.getManifest() != null) {
             var digests = new HashSet<String>(inventory.getManifest().size());
             for (var digest : inventory.getManifest().keySet()) {
@@ -215,7 +218,7 @@ public class SimpleInventoryValidator {
         }
     }
 
-    private void validateInventoryVersions(SimpleInventory inventory, String inventoryPath, ValidationResults results) {
+    private void validateInventoryVersions(SimpleInventory inventory, String inventoryPath, ValidationResultsBuilder results) {
         if (inventory.getVersions() != null) {
             for (var entry : inventory.getVersions().entrySet()) {
                 var versionNum = entry.getKey();
@@ -299,7 +302,7 @@ public class SimpleInventoryValidator {
         }
     }
 
-    private void validateInventoryVersionNumbers(SimpleInventory inventory, String inventoryPath, ValidationResults results) {
+    private void validateInventoryVersionNumbers(SimpleInventory inventory, String inventoryPath, ValidationResultsBuilder results) {
         if (inventory.getVersions() != null) {
             if (inventory.getHead() != null
                     && !inventory.getVersions().containsKey(inventory.getHead())) {
@@ -308,7 +311,6 @@ public class SimpleInventoryValidator {
             }
 
             if (inventory.getVersions().size() > 0) {
-                // TODO confirm that this works for zero-padded versions
                 var versions = new TreeSet<String>(Comparator.naturalOrder());
                 versions.addAll(inventory.getVersions().keySet());
 
@@ -360,7 +362,7 @@ public class SimpleInventoryValidator {
         }
     }
 
-    private void validateInventoryFixity(SimpleInventory inventory, String inventoryPath, ValidationResults results) {
+    private void validateInventoryFixity(SimpleInventory inventory, String inventoryPath, ValidationResultsBuilder results) {
         if (inventory.getFixity() != null) {
             var fixity = inventory.getFixity();
 
@@ -489,7 +491,7 @@ public class SimpleInventoryValidator {
         });
     }
 
-    private Optional<VersionNum> parseAndValidateVersionNum(String num, String inventoryPath, ValidationResults results) {
+    private Optional<VersionNum> parseAndValidateVersionNum(String num, String inventoryPath, ValidationResultsBuilder results) {
         Optional<VersionNum> versionNum = Optional.empty();
 
         if (isInvalidVersionNum(num)) {

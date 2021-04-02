@@ -34,7 +34,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-// TODO
+/**
+ * S3 storage implementation used when validating objects
+ */
 public class CloudStorage implements Storage {
 
     private final CloudClient client;

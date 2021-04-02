@@ -35,11 +35,20 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-// TODO
-public class MultiDigestInputStream extends FilterInputStream {
+/**
+ * Input stream that is able to calculate multiple digests concurrently
+ */
+class MultiDigestInputStream extends FilterInputStream {
 
     private final Map<DigestAlgorithm, DigestInputStream> streamMap;
 
+    /**
+     * Creates a new MultiDigestInputStream
+     *
+     * @param inputStream the stream to wrap
+     * @param digestAlgorithms the algorithms to compute
+     * @return the wrapped stream
+     */
     public static MultiDigestInputStream create(InputStream inputStream,
                                                 Collection<DigestAlgorithm> digestAlgorithms) {
         Enforce.notNull(inputStream, "inputStream cannot be null");
@@ -62,6 +71,11 @@ public class MultiDigestInputStream extends FilterInputStream {
         this.streamMap = streamMap;
     }
 
+    /**
+     * Returns the computed digests. This method should only be called ONCE after the stream has been consumed.
+     *
+     * @return the hex encoded computed digests
+     */
     public Map<DigestAlgorithm, String> getResults() {
         var results = new HashMap<DigestAlgorithm, String>();
 

@@ -26,7 +26,9 @@ package edu.wisc.library.ocfl.core.validation.storage;
 
 import edu.wisc.library.ocfl.api.util.Enforce;
 
-// TODO
+/**
+ * The result of a storage list operation
+ */
 public class Listing {
 
     public enum Type {
@@ -50,10 +52,16 @@ public class Listing {
         this.relativePath = Enforce.notNull(relativePath, "relativePath cannot be null");
     }
 
+    /**
+     * @return the path to the file/directory relative the list operation path
+     */
     public String getRelativePath() {
         return relativePath;
     }
 
+    /**
+     * @return the type of file
+     */
     public Type getType() {
         return type;
     }

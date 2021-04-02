@@ -41,7 +41,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// TODO
+/**
+ * Filesystem storage implementation used when validating objects
+ */
 public class FileSystemStorage implements Storage {
 
     private final Path storageRoot;

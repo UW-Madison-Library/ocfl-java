@@ -29,7 +29,9 @@ import edu.wisc.library.ocfl.api.exception.NotFoundException;
 import java.io.InputStream;
 import java.util.List;
 
-// TODO
+/**
+ * Storage abstraction used when validating objects
+ */
 public interface Storage {
 
     /**

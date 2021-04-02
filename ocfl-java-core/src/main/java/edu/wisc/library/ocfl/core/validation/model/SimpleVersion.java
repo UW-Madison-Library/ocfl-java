@@ -29,6 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * A minimally structured representation of an OCFL version
+ */
 public class SimpleVersion {
 
     public static final String CREATED_KEY = "created";
@@ -93,6 +96,9 @@ public class SimpleVersion {
         return this;
     }
 
+    /**
+     * @return the inverted state map -- should NOT be modified
+     */
     public Map<String, String> getInvertedState() {
         if (invertedState == null && state != null) {
             invertedState = invertMap(state);

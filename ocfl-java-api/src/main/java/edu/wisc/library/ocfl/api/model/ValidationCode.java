@@ -22,8 +22,11 @@
  * THE SOFTWARE.
  */
 
-package edu.wisc.library.ocfl.core.validation;
+package edu.wisc.library.ocfl.api.model;
 
+/**
+ * OCFL validation codes: https://ocfl.io/validation/validation-codes.html
+ */
 public enum ValidationCode {
 
     E001(Type.ERROR),

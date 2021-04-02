@@ -36,8 +36,10 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
-// TODO scope
-public class ContentPaths {
+/**
+ * Helper class to make it easy to iterate over all of the content paths that should exist in a given object version
+ */
+class ContentPaths {
 
     private final Map<VersionNum, Set<String>> contentPaths;
 
@@ -52,6 +54,13 @@ public class ContentPaths {
         });
     }
 
+    /**
+     * Returns an iterator that iterates over ever content path that should exist in the manifest of the specified
+     * version
+     *
+     * @param versionNum the version to iterate on
+     * @return the iterator
+     */
     public Iterator<String> pathsForVersion(VersionNum versionNum) {
         return new Iterator<>() {
             VersionNum currentVersion = versionNum;

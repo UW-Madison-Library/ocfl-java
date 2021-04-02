@@ -1,5 +1,7 @@
 package edu.wisc.library.ocfl.core.validation;
 
+import edu.wisc.library.ocfl.api.model.ValidationCode;
+import edu.wisc.library.ocfl.api.model.ValidationResults;
 import edu.wisc.library.ocfl.core.validation.storage.FileSystemStorage;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeAll;
@@ -55,6 +57,21 @@ public class ValidatorTest {
         assertWarningsCount(results, 2);
         assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a user in E001_extra_dir_in_root/inventory.json");
         assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a message in E001_extra_dir_in_root/inventory.json");
+        assertInfoCount(results, 0);
+    }
+
+    @Test
+    public void errorOnContentNotInContentDir() {
+        var name = "E015_content_not_in_content_dir";
+        var validator = createValidator(OFFICIAL_BAD_FIXTURES);
+
+        var results = validator.validateObject(name, true);
+
+        assertErrorCount(results, 9);
+        assertHasError(results, ValidationCode.E015, "Version directory v3 in E015_content_not_in_content_dir contains an unexpected file a_file.txt");
+        assertHasError(results, ValidationCode.E015, "Version directory v2 in E015_content_not_in_content_dir contains an unexpected file a_file.txt");
+        assertHasError(results, ValidationCode.E015, "Version directory v1 in E015_content_not_in_content_dir contains an unexpected file a_file.txt");
+        assertWarningsCount(results, 0);
         assertInfoCount(results, 0);
     }
 
@@ -995,10 +1012,8 @@ public class ValidatorTest {
 
         var results = validator.validateObject(name, true);
 
-        assertWarningsCount(results, 3);
+        assertWarningsCount(results, 1);
         assertHasWarn(results, ValidationCode.W013, "Object extensions directory W013_unregistered_extension/extensions contains unregistered extension unregistered");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a user in W013_unregistered_extension/inventory.json");
-        assertHasWarn(results, ValidationCode.W007, "Inventory version v1 should contain a message in W013_unregistered_extension/inventory.json");
         assertErrorCount(results, 0);
         assertInfoCount(results, 0);
     }

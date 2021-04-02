@@ -28,6 +28,8 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.wisc.library.ocfl.api.exception.OcflIOException;
+import edu.wisc.library.ocfl.api.model.ValidationCode;
+import edu.wisc.library.ocfl.api.model.ValidationResults;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.validation.model.SimpleInventory;
 import edu.wisc.library.ocfl.core.validation.model.SimpleUser;
@@ -42,6 +44,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+/**
+ * Parses a JSON inventory into a minimally valid SimpleInventory object.
+ */
 public class SimpleInventoryParser {
 
     private final ObjectMapper objectMapper;
@@ -50,12 +55,22 @@ public class SimpleInventoryParser {
         objectMapper = new ObjectMapper();
     }
 
+    /**
+     * Parses the input stream JSON into a minimally valid SimpleInventory object. The only reason an inventory
+     * object would not be returned is if the JSON is syntactically invalid. Otherwise, a SimpleInventory is returned
+     * with any validation issues noted. The validation issues reported here are strictly related to JSON structural
+     * issues such as invalid types or keys.
+     *
+     * @param inventoryStream JSON inventory stream
+     * @param inventoryPath path to the source JSON file, this is used for constructing validation messages
+     * @return the results of the parse
+     */
     public ParseSimpleInventoryResult parse(InputStream inventoryStream, String inventoryPath) {
         Enforce.notNull(inventoryStream, "jsonTree cannot be null");
         Enforce.notNull(inventoryPath, "inventoryPath cannot be null");
 
         SimpleInventory inventory = null;
-        var results = new ValidationResults();
+        var results = new ValidationResultsBuilder();
 
         var jsonTree = parseStream(inventoryStream, inventoryPath, results);
 
@@ -63,10 +78,10 @@ public class SimpleInventoryParser {
             inventory = convertToSimpleInventory(jsonTree, inventoryPath, results);
         }
 
-        return new ParseSimpleInventoryResult(inventory, results);
+        return new ParseSimpleInventoryResult(inventory, results.build());
     }
 
-    private JsonNode parseStream(InputStream inventoryStream, String inventoryPath, ValidationResults results) {
+    private JsonNode parseStream(InputStream inventoryStream, String inventoryPath, ValidationResultsBuilder results) {
         try {
             return objectMapper.readTree(inventoryStream);
         } catch (JsonParseException e) {
@@ -77,7 +92,7 @@ public class SimpleInventoryParser {
         }
     }
 
-    private SimpleInventory convertToSimpleInventory(JsonNode jsonTree, String inventoryPath, ValidationResults results) {
+    private SimpleInventory convertToSimpleInventory(JsonNode jsonTree, String inventoryPath, ValidationResultsBuilder results) {
         var inventory = new SimpleInventory();
 
         jsonTree.fields().forEachRemaining(entry -> {
@@ -134,7 +149,7 @@ public class SimpleInventoryParser {
         return inventory;
     }
 
-    private SimpleVersion parseVersion(JsonNode versionNode, String versionNum, String inventoryPath, ValidationResults results) {
+    private SimpleVersion parseVersion(JsonNode versionNode, String versionNum, String inventoryPath, ValidationResultsBuilder results) {
         var version = new SimpleVersion();
 
         versionNode.fields().forEachRemaining(entry -> {
@@ -171,7 +186,7 @@ public class SimpleInventoryParser {
         return version;
     }
 
-    private SimpleUser parseUser(JsonNode userNode, String versionNum, String inventoryPath, ValidationResults results) {
+    private SimpleUser parseUser(JsonNode userNode, String versionNum, String inventoryPath, ValidationResultsBuilder results) {
         var user = new SimpleUser();
 
         if (!userNode.isNull()) {
@@ -210,7 +225,7 @@ public class SimpleInventoryParser {
         return user;
     }
 
-    private Map<String, List<String>> parseManifest(JsonNode field, String inventoryPath, ValidationResults results) {
+    private Map<String, List<String>> parseManifest(JsonNode field, String inventoryPath, ValidationResultsBuilder results) {
         Map<String, List<String>> manifest = null;
 
         if (field.isNull()) {
@@ -241,7 +256,7 @@ public class SimpleInventoryParser {
         return manifest;
     }
 
-    private Map<String, SimpleVersion> parseVersions(JsonNode field, String inventoryPath, ValidationResults results) {
+    private Map<String, SimpleVersion> parseVersions(JsonNode field, String inventoryPath, ValidationResultsBuilder results) {
         Map<String, SimpleVersion> versions = null;
 
         if (field.isNull()) {
@@ -280,7 +295,7 @@ public class SimpleInventoryParser {
         return versions;
     }
 
-    private Map<String, List<String>> parseState(JsonNode stateNode, String versionNum, String inventoryPath, ValidationResults results) {
+    private Map<String, List<String>> parseState(JsonNode stateNode, String versionNum, String inventoryPath, ValidationResultsBuilder results) {
         Map<String, List<String>> state = null;
 
         if (stateNode.isNull()) {
@@ -312,7 +327,7 @@ public class SimpleInventoryParser {
         return state;
     }
 
-    private Map<String, Map<String, List<String>>> parseFixity(JsonNode field, String inventoryPath, ValidationResults results) {
+    private Map<String, Map<String, List<String>>> parseFixity(JsonNode field, String inventoryPath, ValidationResultsBuilder results) {
         Map<String, Map<String, List<String>>> fixity = null;
 
         if (!field.isNull()) {
@@ -427,10 +442,16 @@ public class SimpleInventoryParser {
             this.validationResults = Enforce.notNull(validationResults, "validationResults cannot be null");
         }
 
+        /**
+         * @return The parsed inventory if it was able to be parsed, which should be most of the time
+         */
         public Optional<SimpleInventory> getInventory() {
             return inventory;
         }
 
+        /**
+         * @return Any validation issues detected while parsing
+         */
         public ValidationResults getValidationResults() {
             return validationResults;
         }

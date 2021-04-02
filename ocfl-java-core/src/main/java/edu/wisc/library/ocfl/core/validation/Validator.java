@@ -30,6 +30,9 @@ import edu.wisc.library.ocfl.api.exception.NotFoundException;
 import edu.wisc.library.ocfl.api.exception.OcflIOException;
 import edu.wisc.library.ocfl.api.model.DigestAlgorithm;
 import edu.wisc.library.ocfl.api.model.OcflVersion;
+import edu.wisc.library.ocfl.api.model.ValidationCode;
+import edu.wisc.library.ocfl.api.model.ValidationIssue;
+import edu.wisc.library.ocfl.api.model.ValidationResults;
 import edu.wisc.library.ocfl.api.model.VersionNum;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.ObjectPaths;
@@ -60,6 +63,9 @@ import java.util.TreeSet;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+/**
+ * Validates an object directory against the OCFL 1.0 spec
+ */
 // TODO rename?
 public class Validator {
 
@@ -96,8 +102,15 @@ public class Validator {
         this.inventoryValidator = new SimpleInventoryValidator();
     }
 
+    /**
+     * Validates the specified directory against the OCFL 1.0 spec.
+     *
+     * @param objectRootPath the path to the object to validate
+     * @param contentFixityCheck true if the content file digests should be validated
+     * @return the validation results
+     */
     public ValidationResults validateObject(String objectRootPath, boolean contentFixityCheck) {
-        var results = new ValidationResults();
+        var results = new ValidationResultsBuilder();
 
         // TODO figure out how to handle links
 
@@ -117,7 +130,7 @@ public class Validator {
                     "Object root inventory not found at %s", inventoryPath);
         }
 
-        return results;
+        return results.build();
     }
 
     private void validateObjectWithInventory(String objectRootPath,
@@ -126,7 +139,7 @@ public class Validator {
                                              Map<DigestAlgorithm, String> inventoryDigests,
                                              boolean inventoryIsValid,
                                              boolean contentFixityCheck,
-                                             ValidationResults results) {
+                                             ValidationResultsBuilder results) {
         var ignoreFiles = new HashSet<>(OBJECT_ROOT_FILES);
 
         var validationResults = inventoryValidator.validateInventory(rootInventory, inventoryPath);
@@ -173,7 +186,7 @@ public class Validator {
                                  SimpleInventory rootInventory,
                                  ContentPaths contentFiles,
                                  Manifests manifests,
-                                 ValidationResults results) {
+                                 ValidationResultsBuilder results) {
         var versionPath = FileUtil.pathJoinFailEmpty(objectRootPath, versionStr);
         var inventoryPath = ObjectPaths.inventoryPath(versionPath);
         var contentDir = defaultedContentDir(rootInventory);
@@ -225,7 +238,7 @@ public class Validator {
     private void validateHeadVersion(String objectRootPath,
                                      SimpleInventory rootInventory,
                                      String rootDigest,
-                                     ValidationResults results) {
+                                     ValidationResultsBuilder results) {
         var versionStr = rootInventory.getHead();
         var versionPath = FileUtil.pathJoinFailEmpty(objectRootPath, versionStr);
         var inventoryPath = ObjectPaths.inventoryPath(versionPath);
@@ -263,7 +276,7 @@ public class Validator {
                                      SimpleInventory rootInventory,
                                      SimpleInventory inventory,
                                      String inventoryPath,
-                                     ValidationResults results) {
+                                     ValidationResultsBuilder results) {
         var currentVersionNum = VersionNum.fromString(versionStr);
         var rootManifest = rootInventory.getManifest();
         var childManifest = inventory.getManifest();
@@ -328,7 +341,7 @@ public class Validator {
                                       String currentVersionStr,
                                       String inventoryPath,
                                       BiFunction<String, String, Boolean> stateComparator,
-                                      ValidationResults results) {
+                                      ValidationResultsBuilder results) {
         var invertedRootState = new HashMap<>(rootVersion.getInvertedState());
 
         childVersion.getState().forEach((childDigest, childPaths) -> {
@@ -357,7 +370,7 @@ public class Validator {
                                       SimpleInventory inventory,
                                       ContentPaths contentFiles,
                                       Manifests manifests,
-                                      ValidationResults results) {
+                                      ValidationResultsBuilder results) {
         var invertedManifest = inventory.getInvertedManifestCopy();
         var fixityPaths = getFixityPaths(inventory);
 
@@ -392,7 +405,7 @@ public class Validator {
         });
     }
 
-    private ContentPaths findAllContentFiles(String objectRootPath, SimpleInventory inventory, ValidationResults results) {
+    private ContentPaths findAllContentFiles(String objectRootPath, SimpleInventory inventory, ValidationResultsBuilder results) {
         var contentDir = defaultedContentDir(inventory);
 
         var files = new HashSet<String>(inventory.getManifest().size());
@@ -419,7 +432,7 @@ public class Validator {
         return new ContentPaths(files);
     }
 
-    private void fixityCheck(String objectRootPath, SimpleInventory inventory, Manifests manifests, ValidationResults results) {
+    private void fixityCheck(String objectRootPath, SimpleInventory inventory, Manifests manifests, ValidationResultsBuilder results) {
         var invertedFixityMap = invertFixity(inventory);
         var contentAlgorithm = DigestAlgorithmRegistry.getAlgorithm(inventory.getDigestAlgorithm());
 
@@ -482,7 +495,7 @@ public class Validator {
                                             String versionPath,
                                             String contentDirPath,
                                             Set<String> ignoreFiles,
-                                            ValidationResults results) {
+                                            ValidationResultsBuilder results) {
         var files = storage.listDirectory(versionPath, false);
 
         if (storage.fileExists(contentDirPath) && storage.listDirectory(contentDirPath, false).isEmpty()) {
@@ -509,7 +522,7 @@ public class Validator {
         }
     }
 
-    private void validateNamaste(String namasteFile, ValidationResults results) {
+    private void validateNamaste(String namasteFile, ValidationResultsBuilder results) {
         try (var stream = storage.readFile(namasteFile)) {
             var contents = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             // TODO there are technically multiple different codes that could be used here
@@ -524,7 +537,7 @@ public class Validator {
         }
     }
 
-    private String validateInventorySidecar(String sidecarPath, ValidationResults results) {
+    private String validateInventorySidecar(String sidecarPath, ValidationResultsBuilder results) {
         try (var stream = storage.readFile(sidecarPath)) {
             var parts = new String(stream.readAllBytes(), StandardCharsets.UTF_8).split("\\s+");
 
@@ -550,9 +563,9 @@ public class Validator {
     }
 
     private Set<String> validateObjectRootContents(String objectRootPath,
-                                            Set<String> ignoreFiles,
-                                            SimpleInventory inventory,
-                                            ValidationResults results) {
+                                                   Set<String> ignoreFiles,
+                                                   SimpleInventory inventory,
+                                                   ValidationResultsBuilder results) {
         var files = storage.listDirectory(objectRootPath, false);
         // It is essential that the order is reversed here so that we later validate versions in reverse order
         var seenVersions = new TreeSet<>(Comparator.<String>naturalOrder().reversed());
@@ -608,7 +621,7 @@ public class Validator {
         return seenVersions;
     }
 
-    private void validateExtensionContents(String objectRootPath, ValidationResults results) {
+    private void validateExtensionContents(String objectRootPath, ValidationResultsBuilder results) {
         var dir = FileUtil.pathJoinFailEmpty(objectRootPath, OcflConstants.EXTENSIONS_DIR);
         var files = storage.listDirectory(dir, false);
 
@@ -626,9 +639,9 @@ public class Validator {
     }
 
     private Optional<String> validateSidecar(String inventoryPath,
-                                   SimpleInventory inventory,
-                                   Map<DigestAlgorithm, String> digests,
-                                   ValidationResults results) {
+                                             SimpleInventory inventory,
+                                             Map<DigestAlgorithm, String> digests,
+                                             ValidationResultsBuilder results) {
         if (inventory.getDigestAlgorithm() != null) {
             var algorithm = DigestAlgorithmRegistry.getAlgorithm(inventory.getDigestAlgorithm());
             var digest = digests.get(algorithm);
@@ -648,7 +661,7 @@ public class Validator {
     }
 
     private ParseResult parseInventory(String inventoryPath,
-                                       ValidationResults results,
+                                       ValidationResultsBuilder results,
                                        DigestAlgorithm... digestAlgorithms) {
         try (var stream = storage.readFile(inventoryPath)) {
             var wrapped = MultiDigestInputStream.create(stream, Arrays.asList(digestAlgorithms));

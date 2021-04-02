@@ -29,6 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * A minimally structured representation of an OCFL inventory
+ */
 public class SimpleInventory {
 
     public static final String ID_KEY = "id";
@@ -144,6 +147,9 @@ public class SimpleInventory {
         return this;
     }
 
+    /**
+     * @return an inverted version of the manifest -- should NOT be modified
+     */
     public Map<String, String> getInvertedManifest() {
         if (invertedManifest == null && manifest != null) {
             invertedManifest = invertMap(manifest);
@@ -151,6 +157,9 @@ public class SimpleInventory {
         return invertedManifest;
     }
 
+    /**
+     * @return a copy of the inverted version of the manifest -- may be modified
+     */
     public Map<String, String> getInvertedManifestCopy() {
         if (invertedManifest == null && manifest != null) {
             return invertMap(manifest);

@@ -22,82 +22,63 @@
  * THE SOFTWARE.
  */
 
-package edu.wisc.library.ocfl.core.validation;
+package edu.wisc.library.ocfl.api.model;
 
-import edu.wisc.library.ocfl.api.util.Enforce;
-
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
-// TODO move?
+/**
+ * Encapsulates the results of validating an object
+ */
 public class ValidationResults {
 
     private final List<ValidationIssue> errors;
     private final List<ValidationIssue> warnings;
     private final List<ValidationIssue> infos;
 
-    public ValidationResults() {
-        this.errors = new ArrayList<>();
-        this.warnings = new ArrayList<>();
-        this.infos = new ArrayList<>();
+    public ValidationResults(List<ValidationIssue> errors, List<ValidationIssue> warnings, List<ValidationIssue> infos) {
+        this.errors = errors;
+        this.warnings = warnings;
+        this.infos = infos;
     }
 
-    public void addAll(ValidationResults other) {
-        this.errors.addAll(other.errors);
-        this.warnings.addAll(other.warnings);
-        this.infos.addAll(other.infos);
-    }
-
-    public ValidationResults addIssue(ValidationCode code, String messageTemplate, Object... args) {
-        Enforce.notNull(code, "code cannot be null");
-
-        var message = messageTemplate;
-
-        if (args != null && args.length > 0) {
-            message = String.format(messageTemplate, args);
-        }
-
-        return addIssue(Optional.of(new ValidationIssue(code, message)));
-    }
-
-    public ValidationResults addIssue(Optional<ValidationIssue> issue) {
-        issue.ifPresent(i -> {
-            switch (i.getCode().getType()) {
-                case ERROR:
-                    errors.add(i);
-                    break;
-                case WARN:
-                    warnings.add(i);
-                    break;
-                case INFO:
-                    infos.add(i);
-                    break;
-            }
-        });
-        return this;
-    }
-
+    /**
+     * @return true if the results contain validation errors
+     */
     public boolean hasErrors() {
         return !errors.isEmpty();
     }
 
+    /**
+     * @return true if the results contain validation warnings
+     */
     public boolean hasWarnings() {
         return !warnings.isEmpty();
     }
 
+    /**
+     * @return true if the results contain validation infos
+     */
     public boolean hasInfos() {
         return !infos.isEmpty();
     }
 
+    /**
+     * @return the list of validation errors
+     */
     public List<ValidationIssue> getErrors() {
         return errors;
     }
 
+    /**
+     * @return the list of validation warnings
+     */
     public List<ValidationIssue> getWarnings() {
         return warnings;
     }
 
+    /**
+     * @return the list of validation infos
+     */
     public List<ValidationIssue> getInfos() {
         return infos;
     }

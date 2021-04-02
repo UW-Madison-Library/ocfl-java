@@ -22,10 +22,13 @@
  * THE SOFTWARE.
  */
 
-package edu.wisc.library.ocfl.core.validation;
+package edu.wisc.library.ocfl.api.model;
 
 import edu.wisc.library.ocfl.api.util.Enforce;
 
+/**
+ * Encapsulates a validation code and a descriptive message
+ */
 public class ValidationIssue {
 
     private final ValidationCode code;
@@ -36,10 +39,16 @@ public class ValidationIssue {
         this.message = Enforce.notBlank(message, "message cannot be blank");
     }
 
+    /**
+     * @return the validation code
+     */
     public ValidationCode getCode() {
         return code;
     }
 
+    /**
+     * @return the descriptive message
+     */
     public String getMessage() {
         return message;
     }

@@ -26,6 +26,9 @@ package edu.wisc.library.ocfl.core.validation.model;
 
 import java.util.Objects;
 
+/**
+ * A minimally structured representation of an OCFL user
+ */
 public class SimpleUser {
 
     public static final String NAME_KEY = "name";

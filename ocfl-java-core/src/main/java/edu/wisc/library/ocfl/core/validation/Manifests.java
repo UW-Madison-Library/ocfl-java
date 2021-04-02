@@ -33,8 +33,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-// TODO scope
-public class Manifests {
+/**
+ * Helper class that wrangles inventory manifests, particularly when an object contains versions that use
+ * different digest algorithms
+ */
+class Manifests {
 
     private final Map<String, Map<String, String>> manifests;
 
@@ -46,6 +49,12 @@ public class Manifests {
         this.manifests.put(inventory.getDigestAlgorithm(), inventory.getInvertedManifest());
     }
 
+    /**
+     * Adds a new inventory's manifest. The new manifest will only be added if there is not an existing manifest
+     * with the same algorithm
+     *
+     * @param inventory the inventory containing the manifest to add
+     */
     public void addManifest(SimpleInventory inventory) {
         Enforce.notBlank(inventory.getDigestAlgorithm(), "digestAlgorithm cannot be blank");
         Enforce.notNull(inventory.getManifest(), "manifest cannot be null");
@@ -55,10 +64,19 @@ public class Manifests {
         }
     }
 
+    /**
+     * @param digestAlgorithm the digest algorithm desired
+     * @param contentPath the content path
+     * @return the digest associated to the content path with the specified algorithm or null
+     */
     public String getDigest(String digestAlgorithm, String contentPath) {
         return manifests.getOrDefault(digestAlgorithm, Collections.emptyMap()).get(contentPath);
     }
 
+    /**
+     * @param contentPath the content path
+     * @return map of digest algorithms to digests that map to the apth
+     */
     public Map<String, String> getDigests(String contentPath) {
         return manifests.entrySet().stream()
                 .map(entry -> {
