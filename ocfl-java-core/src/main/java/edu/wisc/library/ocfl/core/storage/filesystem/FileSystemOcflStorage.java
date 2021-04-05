@@ -70,6 +70,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.Collectors;
@@ -156,6 +157,11 @@ public class FileSystemOcflStorage extends AbstractOcflStorage {
             } else {
                 inventory = parseInventory(objectRootPathStr, ObjectPaths.inventoryPath(objectRootPathAbsolute));
             }
+        }
+
+        if (inventory != null && !Objects.equals(objectId, inventory.getId())) {
+            throw new CorruptObjectException(String.format("Expected object at %s to have id %s. Found: %s",
+                    objectRootPathStr, objectId, inventory.getId()));
         }
 
         return inventory;

@@ -67,6 +67,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.Stream;
@@ -143,6 +144,11 @@ public class CloudOcflStorage extends AbstractOcflStorage {
                 ensureRootObjectHasNotChanged(inventory);
             } else {
                 inventory = downloadAndVerifyInventory(objectId, objectRootPath);
+            }
+
+            if (inventory != null && !Objects.equals(objectId, inventory.getId())) {
+                throw new CorruptObjectException(String.format("Expected object at %s to have id %s. Found: %s",
+                        objectRootPath, objectId, inventory.getId()));
             }
         }
 

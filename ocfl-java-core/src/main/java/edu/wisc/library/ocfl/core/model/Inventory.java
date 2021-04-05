@@ -237,9 +237,11 @@ public class Inventory {
     private static Map<DigestAlgorithm, PathBiMap> createFixityBiMap(Map<DigestAlgorithm, Map<String, Set<String>>> fixity) {
         var map = new HashMap<DigestAlgorithm, PathBiMap>();
 
-        fixity.forEach((algorithm, values) -> {
-            map.put(algorithm, PathBiMap.fromFileIdMap(values));
-        });
+        if (fixity != null) {
+            fixity.forEach((algorithm, values) -> {
+                map.put(algorithm, PathBiMap.fromFileIdMap(values));
+            });
+        }
 
         return Collections.unmodifiableMap(map);
     }

@@ -2131,6 +2131,19 @@ public abstract class OcflITest {
         assertEquals(3, results.getWarnings().size(), () -> results.getWarnings().toString());
     }
 
+    @Test
+    public void shouldFailWhenInventoryIdDoesNotMatchExpectedId() {
+        var repoName = "repo-with-mismatched-id";
+        var repoRoot = sourceRepoPath(repoName);
+
+        var repo = existingRepo(repoName, repoRoot);
+
+        OcflAsserts.assertThrowsWithMessage(CorruptObjectException.class,
+                "Expected object at object-2 to have id object-2. Found: object-1", () -> {
+            repo.describeObject("object-2");
+        });
+    }
+
     private void verifyStream(Path expectedFile, OcflObjectVersionFile actual) throws IOException {
         var stream = actual.getStream();
         var contents = TestHelper.inputToString(stream);
