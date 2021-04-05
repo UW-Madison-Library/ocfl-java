@@ -296,6 +296,8 @@ file within an object. This is useful for identifying at what point
 specific files were changed.
 * **containsObject**: Indicates whether the OCFL repository contains
   an object with the given id.
+* **validateObject**: Validates an object against the OCFL 1.0 spec and
+  returns a list of any errors or warnings found.
 * **purgeObject**: Permanently removes an object from the repository.
   The object is NOT recoverable.
 * **listObjectIds**: Returns a stream containing the ids of all of the
