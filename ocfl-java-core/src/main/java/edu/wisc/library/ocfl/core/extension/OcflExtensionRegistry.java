@@ -24,10 +24,10 @@
 
 package edu.wisc.library.ocfl.core.extension;
 
-import edu.wisc.library.ocfl.api.OcflConstants;
 import edu.wisc.library.ocfl.api.exception.OcflExtensionException;
 import edu.wisc.library.ocfl.api.util.Enforce;
 import edu.wisc.library.ocfl.core.extension.storage.layout.FlatLayoutExtension;
+import edu.wisc.library.ocfl.core.extension.storage.layout.FlatOmitPrefixLayoutExtension;
 import edu.wisc.library.ocfl.core.extension.storage.layout.HashedNTupleIdEncapsulationLayoutExtension;
 import edu.wisc.library.ocfl.core.extension.storage.layout.HashedNTupleLayoutExtension;
 import org.slf4j.Logger;
@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Registry for mapping extensions to their implementations. The following out-of-the-box extensions are pre-registered
@@ -55,7 +54,8 @@ public final class OcflExtensionRegistry {
     private static final Map<String, Class<? extends OcflExtension>> REGISTRY = new HashMap<>(Map.of(
             HashedNTupleLayoutExtension.EXTENSION_NAME, HashedNTupleLayoutExtension.class,
             HashedNTupleIdEncapsulationLayoutExtension.EXTENSION_NAME, HashedNTupleIdEncapsulationLayoutExtension.class,
-            FlatLayoutExtension.EXTENSION_NAME, FlatLayoutExtension.class
+            FlatLayoutExtension.EXTENSION_NAME, FlatLayoutExtension.class,
+            FlatOmitPrefixLayoutExtension.EXTENSION_NAME, FlatOmitPrefixLayoutExtension.class
     ));
 
     private OcflExtensionRegistry() {
